@@ -6,6 +6,13 @@ All graphics, music, and sound effects are generated in code, and every characte
 
 Stage 1, "The Hollow Station", is complete: open space, then a station interior, then a boss chamber.
 
+## Documentation
+
+- [CLAUDE.md](CLAUDE.md) — orientation, constraints and conventions (start here)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the game, renderer and level are built
+- [docs/DECISIONS.md](docs/DECISIONS.md) — why things are the way they are
+- [docs/TODO.md](docs/TODO.md) — status, open questions and backlog
+
 ## Running
 
 ES modules need to be served over HTTP (opening `index.html` from disk won't work):
