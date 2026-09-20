@@ -118,15 +118,44 @@ export function createShip({ outline = OUT } = {}) {
   add(box(3.4, 0.6, 2.6), mPanel, [-2, 4.2, 1.8], [0, 0, 0], [1, 1, 1], 0.16);
   add(box(2.6, 0.6, 2.0), mPanel, [-7, 4.0, -1.6], [0, 0, 0], [1, 1, 1], 0.16);
   for (const s of [1, -1]) add(box(2.0, 1.4, 0.7), toon(C.shade), [0, 0.2, s * 4.4], [0, 0, 0], [1, 1, 1], 0.16);
+  // --- muzzle flash (hidden until the ship fires) ---------------------------
+  const flashGeo = new THREE.ConeGeometry(2.4, 6, 4, 1, true);
+  flashGeo.rotateZ(-Math.PI / 2);
+  const flashMat = new THREE.MeshBasicMaterial({
+    color: 0xbfefff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  });
+  const flash = new THREE.Mesh(flashGeo, flashMat);
+  flash.position.set(13.5, 0, 0);
+  flash.visible = false;
+  nose.add(flash);
+
   // Display pose: mostly side-on, turned just enough to show the top and flank.
   root.rotation.set(0.2, -0.3, 0);
 
-  let t = 0;
+  let t = 0, flashT = 0, flashPower = 1, recoil = 0;
   return {
     group: root,
     bank,
+    nose,
+    // Called when the player shoots; power scales the flash and kick.
+    fire(power = 1) {
+      flashPower = power;
+      flashT = 0.06 + 0.04 * power;
+      recoil = Math.min(2.2, 0.5 * power);
+    },
     update(dt, state = {}) {
       t += dt;
+      if (flashT > 0) {
+        flashT -= dt;
+        const k = Math.max(0, flashT / (0.06 + 0.04 * flashPower));
+        flash.visible = true;
+        flash.scale.set(0.5 + k * 0.9, k * flashPower, k * flashPower);
+        flashMat.opacity = 0.35 + 0.6 * k;
+      } else {
+        flash.visible = false;
+      }
+      recoil = Math.max(0, recoil - dt * 7);
+      bank.position.x = -recoil;
       const b = state.bank || 0;
       bank.rotation.x = THREE.MathUtils.lerp(bank.rotation.x, b * 0.55, 0.25);
       bank.position.y = Math.sin(t * 2.2) * 0.2;

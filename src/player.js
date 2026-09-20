@@ -339,6 +339,7 @@ export class Player {
     if (shots < 6) {
       g.pbullets.push(new PBullet('shot', this.x + 18, this.y, 8, 0, { trail: null }));
       g.audio.play('shot');
+      g.r3d?.ship.fire(1);
     }
     g.pod?.fire();
     for (const b of g.bits) b.fire();
@@ -358,6 +359,7 @@ export class Player {
     }));
     g.fx.add({ k: 'ring', x: this.x + 20, y: this.y, r: 2, vr: 1.5 + L * 0.4, life: 12, max: 12, c: '#aee6ff' });
     g.audio.play('beam', L);
+    g.r3d?.ship.fire(1 + L * 0.4);
   }
 
   draw(ctx, cam) {

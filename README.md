@@ -52,15 +52,29 @@ The player ship and pod are real 3D models rendered with Three.js (vendored in `
 
 ## Model preview harness
 
-Open http://localhost:8765/preview.html to inspect models without playing:
+Open http://localhost:8765/preview.html to inspect models without playing. Controls run along the bottom of the page.
+
+**Sequences** play back the animations the game uses:
+
+| Button | Shows |
+| --- | --- |
+| Idle | The ship flying, banking and idling |
+| Firing | Tap-fire: muzzle flash, recoil and shots |
+| Charged beam | The release of a full charge |
+| Pod flies in | The pod entering from the left, as it does after the first crystal |
+| Pod docks front | The pod approaching and locking onto the nose |
+| Pod docks rear | The same at the tail |
+| Replay | Restarts the current sequence (or press space) |
+
+Also available:
 
 - Switch between the ship and the pod, and change the pod's laser colour.
-- Drive the animation: bank angle (manual or automatic), throttle, and pause.
+- Bank angle (manual or automatic), throttle, and pause.
 - Orbit by dragging, zoom by scrolling, or jump to preset angles (game, side, top, front, 3/4, rear).
 - Toggle ink outlines, wireframe and the grid; move the light; change the background.
 - Live thumbnails show the model at actual in-game size (1x, 2x, 3x) so you can judge readability.
-- Save a PNG of the current view; live frame rate and triangle counts are shown top-left.
-- Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model.
+- Save a PNG of the current view; frame rate and triangle counts show top-left.
+- Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model, `space` replays.
 
 ## Code layout
 
