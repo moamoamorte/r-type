@@ -85,7 +85,7 @@ const input = new Input();
 const U = 1 / 0.78;            // game pixels -> preview world units (game scales the model by 0.78)
 const BEAM_POWER = [0, 4, 8, 14, 22, 34];
 const play = {
-  x: -20, y: 0, tilt: 0, charge: 0, holdT: 0, speedLv: 0,
+  x: -20, y: 0, tilt: 0, turn: 0, charge: 0, holdT: 0, speedLv: 0,
   pod: { state: 'front', x: 0, y: 0, vx: 0, has: true },
 };
 
@@ -118,7 +118,7 @@ function fitPlayArea() {
 }
 
 function resetPlay() {
-  play.x = -20; play.y = 0; play.tilt = 0; play.charge = 0; play.holdT = 0;
+  play.x = -20; play.y = 0; play.tilt = 0; play.turn = 0; play.charge = 0; play.holdT = 0;
   Object.assign(play.pod, { state: 'front', x: 0, y: 0, vx: 0, has: true });
   clearShots();
 }
@@ -136,6 +136,7 @@ function stepPlay() {
   play.x = THREE.MathUtils.clamp(play.x + dx * speed, -BOUND_X, BOUND_X);
   play.y = THREE.MathUtils.clamp(play.y - dy * speed, -BOUND_Y, BOUND_Y);   // screen y is inverted in world space
   play.tilt = THREE.MathUtils.lerp(play.tilt, dy, 0.25);
+  play.turn = THREE.MathUtils.lerp(play.turn, dx, 0.2);
 
   if (input.pressed('fire')) {
     models.ship.fire(1);
@@ -402,7 +403,7 @@ function frame(now) {
       let steps = 0;
       while (acc >= STEP && steps++ < 5) { stepPlay(); acc -= STEP; }
       applyPlay();
-      models.ship.update(dt, { bank: -play.tilt, throttle: state.throttle });
+      models.ship.update(dt, { bank: -play.tilt, dip: play.turn, throttle: state.throttle });
     } else {
       if (state.autoBank) state.bank = Math.sin(t * 1.1);
       models.ship.update(dt, { bank: state.bank, throttle: state.throttle });

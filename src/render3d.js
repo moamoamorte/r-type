@@ -66,7 +66,11 @@ export class Render3D {
     this.ship.group.visible = !!show;
     if (p && show) {
       this.ship.group.position.set(p.x - cam, -p.y, 0);
-      this.ship.update(dt, { bank: -p.tilt, throttle: p.entering ? 1 : 0.85 + Math.random() * 0.15 });
+      this.ship.update(dt, {
+        bank: -p.tilt,
+        dip: p.turn || 0,
+        throttle: p.entering ? 1 : 0.85 + Math.random() * 0.15,
+      });
     }
 
     const pod = game.pod;

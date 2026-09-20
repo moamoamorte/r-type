@@ -279,6 +279,7 @@ export class Player {
     this.charge = 0;
     this.holdT = 0;
     this.tilt = 0;
+    this.turn = 0;
     this.t = 0;
   }
 
@@ -309,6 +310,7 @@ export class Player {
     this.x += dx * this.speed;
     this.y += dy * this.speed;
     this.tilt = lerp(this.tilt, dy, 0.25);
+    this.turn = lerp(this.turn, dx, 0.2);
     this.x = clamp(this.x, g.cam + 16, g.cam + W - 22);
     this.y = clamp(this.y, 10, H - 9);
 
