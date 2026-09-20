@@ -1,6 +1,6 @@
-// Player fighter, built procedurally. Original design: a blunt-nosed gunship
-// with four swept arms in an X around the fuselage, each ending in an engine.
-// Mostly grey armour with minimal accents.
+// Player fighter, built procedurally. Original design: a grey gunship whose
+// hull tapers from a wide engine block down to a narrow nose, with four short
+// swept arms forming a compact X when seen from behind.
 // +X is forward, +Y up, +Z out of the screen.
 import * as THREE from '../../vendor/three.module.js';
 import { part, toon, glossy } from './materials.js';
@@ -67,23 +67,21 @@ export function createShip({ outline = OUT } = {}) {
   };
   const add = (...args) => put(bank, ...args);
 
-  // --- fuselage: wide and blunt, flat chisel face at the front -------------
-  add(prism(4.6, 4.0, 22, 8), mHull, [-2, 0, 0], [0, 0, 0], [1, 0.9, 1.1]);
-  add(prism(4.6, 4.4, 5, 8), mLight, [11, 0, 0], [0, 0, 0], [1, 0.92, 1.12]);
-  add(box(2.2, 8.6, 9.6), mShade, [14.2, 0, 0]);            // flat nose face
-  add(box(1.2, 7.0, 8.0), mPanel, [15.4, 0, 0], [0, 0, 0], [1, 1, 1], 0.28);
-  add(box(1.0, 3.0, 5.0), mDark, [16.1, 1.6, 0], [0, 0, 0], [1, 1, 1], 0.22);  // sensor band
-  add(box(6, 1.4, 8.4), mShade, [8, 4.0, 0]);                // dorsal deck
-  add(box(14, 1.6, 7.0), mPanel, [-2, -4.0, 0]);             // belly plate
-  add(box(5, 5.6, 7.6), mMetal, [-13.5, 0, 0], [0, 0, 0], [1, 1, 1], 0.4);     // tail block
+  // --- fuselage: wide at the engines, tapering to a point at the nose ------
+  add(box(5, 6.4, 8.2), mMetal, [-14, 0, 0], [0, 0, 0], [1, 1, 1], 0.4);        // engine block
+  add(prism(3.9, 4.6, 14, 8), mHull, [-4.5, 0, 0], [0, 0, 0], [1, 0.92, 1.08]); // mid body
+  add(prism(1.7, 3.9, 12, 8), mLight, [8.5, 0, 0], [0, 0, 0], [1, 0.9, 1]);     // forward taper
+  add(prism(0.22, 1.7, 5.5, 6), mShade, [17.2, 0, 0]);                           // nose point
+  add(box(7, 1.3, 6.4), mShade, [1, 3.6, 0]);                                    // dorsal deck
+  add(box(12, 1.5, 6.2), mPanel, [-4, -3.7, 0]);                                 // belly plate
+  add(box(3.4, 1.0, 4.2), mDark, [11, 1.9, 0], [0, 0, 0], [1, 1, 1], 0.22);      // sensor spine
 
   // --- cockpit -------------------------------------------------------------
-  const canopyGeo = new THREE.SphereGeometry(2.1, 16, 10, 0, TAU, 0, Math.PI / 2);
-  add(canopyGeo, glass, [9.8, 4.4, 0], [0, 0, 0], [1.9, 0.62, 1.0], 0.18);
-  add(box(6.6, 0.7, 5.0), mMetal, [9.5, 3.9, 0], [0, 0, 0], [1, 1, 1], 0.2);
+  const canopyGeo = new THREE.SphereGeometry(2.0, 16, 10, 0, TAU, 0, Math.PI / 2);
+  add(canopyGeo, glass, [4.6, 4.0, 0], [0, 0, 0], [1.9, 0.6, 1.0], 0.18);
+  add(box(6.4, 0.7, 4.6), mMetal, [4.6, 3.6, 0], [0, 0, 0], [1, 1, 1], 0.2);
 
-  // --- four arms in an X ---------------------------------------------------
-  // Each arm is built pointing +Z, then rolled around the forward axis.
+  // --- four short arms in a compact X --------------------------------------
   const flames = [];
   const armAngles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
   for (const a of armAngles) {
@@ -91,44 +89,44 @@ export function createShip({ outline = OUT } = {}) {
     arm.rotation.x = a;
     bank.add(arm);
 
-    put(arm, plate([[5, 2.5], [6.5, 4], [-6, 13], [-12, 13], [-6, 4]], 1.2), mHull, [-3, 0, 0]);
-    put(arm, plate([[6.2, 4], [-6, 13], [-8.6, 13], [3.4, 4]], 1.3), mShade, [-3, 0.15, 0], [0, 0, 0], [1, 1, 1], 0.24);
-    put(arm, prism(2.3, 2.5, 13, 6), mLight, [-6, 0, 13.6], [0, 0, 0], [1, 1, 1.05]);
-    put(arm, box(8, 0.9, 1.3), mPanel, [-6, 2.2, 13.6], [0, 0, 0], [1, 1, 1], 0.22);
-    put(arm, prism(2.8, 2.3, 2.4, 6), mMetal, [-13.4, 0, 13.6]);
-    put(arm, prism(1.6, 2.4, 3.5, 6), mDark, [0.6, 0, 13.6], [0, 0, 0], [1, 1, 1], 0.26);
+    put(arm, plate([[4, 2.2], [5.2, 3.4], [-4.5, 9.2], [-9, 9.2], [-4.5, 3.4]], 1.1), mHull, [-4, 0, 0]);
+    put(arm, plate([[5, 3.4], [-4.5, 9.2], [-6.4, 9.2], [2.6, 3.4]], 1.2), mShade, [-4, 0.15, 0], [0, 0, 0], [1, 1, 1], 0.24);
+    put(arm, prism(1.9, 2.1, 10, 6), mLight, [-6.5, 0, 9.6], [0, 0, 0], [1, 1, 1.05]);
+    put(arm, box(6, 0.8, 1.1), mPanel, [-6.5, 1.9, 9.6], [0, 0, 0], [1, 1, 1], 0.22);
+    put(arm, prism(2.4, 1.9, 2.2, 6), mMetal, [-12.2, 0, 9.6]);
+    put(arm, prism(1.3, 2.0, 3, 6), mDark, [-0.9, 0, 9.6], [0, 0, 0], [1, 1, 1], 0.26);
 
     const ring = new THREE.Mesh(
-      new THREE.CircleGeometry(2.0, 12),
+      new THREE.CircleGeometry(1.7, 12),
       new THREE.MeshBasicMaterial({ color: 0x9fe8ff, toneMapped: false })
     );
-    ring.position.set(-14.7, 0, 13.6);
+    ring.position.set(-13.3, 0, 9.6);
     ring.rotation.y = -Math.PI / 2;
     arm.add(ring);
 
-    const flameGeo = new THREE.ConeGeometry(1.8, 12, 8, 1, true);
+    const flameGeo = new THREE.ConeGeometry(1.5, 10, 8, 1, true);
     flameGeo.rotateZ(Math.PI / 2);
     const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({
       color: 0x8fe4ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
-    flame.position.set(-21, 0, 13.6);
+    flame.position.set(-19, 0, 9.6);
     arm.add(flame);
     flames.push(flame);
   }
 
-  // --- twin cannons on the blunt face --------------------------------------
+  // --- cannons, tucked along the taper so the point stays clear -------------
   for (const s of [1, -1]) {
-    add(box(7, 2.2, 2.4), mDark, [12, -2.2, s * 3.1], [0, 0, 0], [1, 1, 1], 0.3);
-    add(prism(0.8, 1.0, 6), mMetal, [18, -2.2, s * 3.1], [0, 0, 0], [1, 1, 1], 0.24);
-    add(box(1.2, 1.2, 1.2), toon(C.muzzle), [21.2, -2.2, s * 3.1], [0, 0, 0], [1, 1, 1], 0.18);
+    add(box(6, 1.8, 2.0), mDark, [7, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.3);
+    add(prism(0.7, 0.85, 5.5, 6), mMetal, [12.5, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.24);
+    add(box(1.0, 1.0, 1.0), toon(C.muzzle), [15.4, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.18);
   }
 
   // --- greebles ------------------------------------------------------------
-  add(box(4, 0.6, 3), mPanel, [2, 4.6, 2.2], [0, 0, 0], [1, 1, 1], 0.16);
-  add(box(3, 0.6, 2.4), mPanel, [-4, 4.4, -2.0], [0, 0, 0], [1, 1, 1], 0.16);
-  for (const s of [1, -1]) add(box(2.2, 1.6, 0.8), glossy(C.shade), [4, 0.4, s * 4.8], [0, 0, 0], [1, 1, 1], 0.16);
-  const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.85, 10, 8), glossy(C.light));
-  sensor.position.set(12.6, 3.4, 0);
+  add(box(3.4, 0.6, 2.6), mPanel, [-2, 4.2, 1.8], [0, 0, 0], [1, 1, 1], 0.16);
+  add(box(2.6, 0.6, 2.0), mPanel, [-7, 4.0, -1.6], [0, 0, 0], [1, 1, 1], 0.16);
+  for (const s of [1, -1]) add(box(2.0, 1.4, 0.7), glossy(C.shade), [0, 0.2, s * 4.4], [0, 0, 0], [1, 1, 1], 0.16);
+  const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 8), glossy(C.light));
+  sensor.position.set(9.5, 2.9, 0);
   bank.add(sensor);
 
   // Display pose: mostly side-on, turned just enough to show the top and flank.
@@ -147,7 +145,7 @@ export function createShip({ outline = OUT } = {}) {
       for (const f of flames) {
         const k = thr * (0.75 + Math.random() * 0.4);
         f.scale.set(k, 1, 1);
-        f.position.x = -15.5 - 6 * k;
+        f.position.x = -14 - 5.5 * k;
         f.material.opacity = 0.3 + 0.35 * k;
         f.visible = thr > 0.02;
       }
