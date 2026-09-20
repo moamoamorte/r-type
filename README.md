@@ -42,6 +42,26 @@ Then open http://localhost:8765. Any other static file server also works. `serve
 - **Dying** sends you back to the last checkpoint and removes all power-ups. You get an extra ship at 50,000 points and every 100,000 after that.
 - **The boss** only takes damage while its armoured iris is open. Parking the pod in the open eye works very well.
 
+## 3D models
+
+The player ship and pod are real 3D models rendered with Three.js (vendored in `vendor/`, no install or build step). They sit on a transparent canvas over the 2D playfield, so all game logic stays 2D. Everything else — terrain, enemies, boss, effects — is still 2D for now.
+
+- The models are built in code, so there are no asset files.
+- Shading is cel-style with ink outlines, to match a hand-drawn anime look.
+- If WebGL is unavailable the game falls back to the original 2D sprites. Add `?flat=1` to the URL to force that.
+
+## Model preview harness
+
+Open http://localhost:8765/preview.html to inspect models without playing:
+
+- Switch between the ship and the pod, and change the pod's laser colour.
+- Drive the animation: bank angle (manual or automatic), throttle, and pause.
+- Orbit by dragging, zoom by scrolling, or jump to preset angles (game, side, top, front, 3/4, rear).
+- Toggle ink outlines, wireframe and the grid; move the light; change the background.
+- Live thumbnails show the model at actual in-game size (1x, 2x, 3x) so you can judge readability.
+- Save a PNG of the current view; live frame rate and triangle counts are shown top-left.
+- Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model.
+
 ## Code layout
 
 | File | Contents |
@@ -57,5 +77,8 @@ Then open http://localhost:8765. Any other static file server also works. `serve
 | `src/audio.js` | Synthesised sound effects and music sequencer |
 | `src/font.js` | 5×7 bitmap font |
 | `src/input.js` | Keyboard and gamepad input |
+| `src/render3d.js` | 3D layer that draws the ship and pod over the 2D game |
+| `src/models/*.js` | Procedural 3D models and cel-shading materials |
+| `src/preview.js` | Logic for the standalone model preview page |
 
 Adding a stage means writing a new `levelN.js` with `buildTerrain()` and `buildSpawns()`, plus a boss class.

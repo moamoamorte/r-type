@@ -365,7 +365,14 @@ export class Player {
     if (this.inv > 0 && (this.t >> 2) % 2) return;
     const x = Math.round(this.x) - cam, y = Math.round(this.y);
     drawShip(ctx, x, y, this.tilt);
-    if (this.charge > 0) {
+    this.drawCharge(ctx, cam);
+  }
+
+  // Charge orb at the nose; drawn on the 2D layer even when the ship is 3D.
+  drawCharge(ctx, cam) {
+    if (this.dead || this.charge <= 0) return;
+    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    {
       const r = 2 + this.charge * 6 + Math.sin(this.t * 0.6) * 1;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';

@@ -10,6 +10,7 @@ import { Player, Pod, Bit, drawShip } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
 import { Boss } from './boss.js';
 import { PowerItem } from './items.js';
+import { Render3D } from './render3d.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -31,6 +32,10 @@ class Game {
     this.terrain = buildTerrain();
     this.spawns = buildSpawns();
     this.bg = new Background();
+    // ?flat=1 forces the original 2D sprites (handy for comparing the two).
+    const flat2d = new URLSearchParams(location.search).has('flat');
+    this.r3d = flat2d ? null : Render3D.create(document.getElementById('screen3d'));
+    if (flat2d) document.getElementById('screen3d').style.display = 'none';
     this.fx = new FX();
     this.hi = loadHi();
     this.state = 'title';
@@ -406,8 +411,12 @@ class Game {
     for (const it of this.items) it.draw(ctx, camI);
     for (const b of this.pbullets) b.draw(ctx, camI);
     for (const b of this.bits) b.draw(ctx, camI);
-    if (this.state !== 'clear' || this.player.x - cam < W + 30) this.player.draw(ctx, camI);
-    this.pod?.draw(ctx, camI);
+    const flat = !this.r3d;
+    if (this.state !== 'clear' || this.player.x - cam < W + 30) {
+      if (flat) this.player.draw(ctx, camI);
+      else this.player.drawCharge(ctx, camI);
+    }
+    if (flat) this.pod?.draw(ctx, camI);
     for (const b of this.ebullets) b.draw(ctx, camI);
     this.fx.draw(ctx, cam);
     for (const pu of this.popups) drawText(ctx, pu.text, pu.x - cam, pu.y, pu.color, { align: 'center' });
@@ -416,6 +425,7 @@ class Game {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
+    this.r3d?.render(this);
 
     this.drawHUD();
     this.drawOverlays();
@@ -504,6 +514,7 @@ class Game {
   }
 
   drawTitle() {
+    this.r3d?.clear();
     this.bg.draw(ctx, this.stateT * 0.5, this.t);
     ctx.fillStyle = 'rgba(0,0,10,0.35)';
     ctx.fillRect(0, 0, W, H);

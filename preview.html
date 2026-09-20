@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nebula Lance - model preview</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: grid; grid-template-columns: 1fr 260px;
+      background: #0e1016; color: #dfe3ec; font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; }
+    #stage { position: relative; min-width: 0; }
+    #view { display: block; width: 100%; height: 100%; }
+    #hud { position: absolute; top: 10px; left: 12px; font: 12px ui-monospace, monospace;
+      color: #7fe8ff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+    #strip { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 10px; align-items: flex-end; }
+    #strip figure { margin: 0; text-align: center; }
+    #strip canvas { display: block; background: #070a16; border: 1px solid #2a3040; border-radius: 4px;
+      image-rendering: pixelated; }
+    #strip figcaption { font-size: 11px; color: #8b93a5; margin-top: 3px; }
+    aside { border-left: 1px solid #222736; padding: 12px; overflow-y: auto; background: #12151d; }
+    h1 { font-size: 13px; margin: 0 0 10px; letter-spacing: .08em; text-transform: uppercase; color: #7fe8ff; }
+    fieldset { border: 1px solid #262c3b; border-radius: 6px; margin: 0 0 10px; padding: 8px 10px; }
+    legend { font-size: 11px; color: #8b93a5; text-transform: uppercase; letter-spacing: .06em; padding: 0 4px; }
+    label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; }
+    label span.v { color: #7fe8ff; font: 11px ui-monospace, monospace; min-width: 34px; text-align: right; }
+    input[type=range] { flex: 1; accent-color: #3fd8cb; }
+    select, button { width: 100%; background: #1a1f2b; color: #dfe3ec; border: 1px solid #2f3646;
+      border-radius: 5px; padding: 5px 7px; font: inherit; }
+    button { cursor: pointer; margin-top: 6px; }
+    button:hover { border-color: #3fd8cb; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .row button { margin-top: 0; }
+    kbd { background: #1a1f2b; border: 1px solid #2f3646; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+    p.hint { color: #8b93a5; font-size: 11px; margin: 6px 0 0; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="strip">
+      <figure><canvas id="px1" width="64" height="64"></canvas><figcaption>1x (in game)</figcaption></figure>
+      <figure><canvas id="px2" width="128" height="128"></canvas><figcaption>2x</figcaption></figure>
+      <figure><canvas id="px3" width="192" height="192"></canvas><figcaption>3x</figcaption></figure>
+    </div>
+  </div>
+  <aside>
+    <h1>Model preview</h1>
+    <fieldset><legend>Model</legend>
+      <select id="model">
+        <option value="ship">Player ship</option>
+        <option value="pod">Pod</option>
+      </select>
+      <label>Pod colour <select id="podColor" style="width:auto"><option>red</option><option>blue</option><option>yellow</option></select></label>
+    </fieldset>
+    <fieldset><legend>Animation</legend>
+      <label>Bank <input type="range" id="bank" min="-1" max="1" step="0.01" value="0"><span class="v" id="bankV">0.00</span></label>
+      <label>Auto bank <input type="checkbox" id="autoBank" checked></label>
+      <label>Throttle <input type="range" id="throttle" min="0" max="1" step="0.01" value="1"><span class="v" id="throttleV">1.00</span></label>
+      <label>Pause <input type="checkbox" id="pause"></label>
+    </fieldset>
+    <fieldset><legend>View</legend>
+      <div class="row">
+        <button data-view="game">Game</button><button data-view="side">Side</button>
+        <button data-view="top">Top</button><button data-view="front">Front</button>
+        <button data-view="three">3/4</button><button data-view="rear">Rear</button>
+      </div>
+      <label>Auto-rotate <input type="checkbox" id="spin"></label>
+      <label>Zoom <input type="range" id="zoom" min="40" max="320" step="1" value="160"><span class="v" id="zoomV">160</span></label>
+    </fieldset>
+    <fieldset><legend>Render</legend>
+      <label>Ink outlines <input type="checkbox" id="outline" checked></label>
+      <label>Wireframe <input type="checkbox" id="wire"></label>
+      <label>Grid <input type="checkbox" id="grid" checked></label>
+      <label>Light angle <input type="range" id="lightA" min="0" max="360" step="1" value="35"><span class="v" id="lightAV">35</span></label>
+      <label>Background <select id="bg" style="width:auto">
+        <option value="space">Space</option><option value="studio">Studio</option><option value="white">White</option></select></label>
+    </fieldset>
+    <fieldset><legend>Export</legend>
+      <button id="shot">Save PNG</button>
+    </fieldset>
+    <p class="hint">Drag to orbit, scroll to zoom. <kbd>R</kbd> resets the view, <kbd>O</kbd> toggles outlines, <kbd>1</kbd>/<kbd>2</kbd> switches model.</p>
+  </aside>
+  <script type="module" src="src/preview.js"></script>
+</body>
+</html>
