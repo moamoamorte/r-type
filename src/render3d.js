@@ -58,6 +58,22 @@ export class Render3D {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // Title screen: the ship hangs centre stage, turning slowly.
+  renderTitle(t) {
+    this.pod.group.visible = false;
+    const s = this.ship.group;
+    s.visible = true;
+    s.scale.setScalar(2.0);
+    s.position.set(W / 2, -97 + Math.sin(t * 0.03) * 3, 0);
+    s.rotation.set(0.2 + Math.sin(t * 0.011) * 0.06, -0.3 + Math.sin(t * 0.008) * 0.22, 0);
+    this.ship.update(1 / 60, {
+      bank: Math.sin(t * 0.02) * 0.3,
+      dip: Math.sin(t * 0.014) * 0.4,
+      throttle: 1,
+    });
+    this.renderer.render(this.scene, this.camera);
+  }
+
   render(game, dt = 1 / 60) {
     const p = game.player;
     const cam = game.cam;
@@ -65,6 +81,8 @@ export class Render3D {
     const show = p && !p.dead && !(p.inv > 0 && (p.t >> 2) % 2);
     this.ship.group.visible = !!show;
     if (p && show) {
+      this.ship.group.scale.setScalar(0.78);
+      this.ship.group.rotation.set(0.2, -0.3, 0);
       this.ship.group.position.set(p.x - cam, -p.y, 0);
       this.ship.update(dt, {
         bank: -p.tilt,

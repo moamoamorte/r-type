@@ -1,4 +1,4 @@
-# Nebula Lance
+# Xiphos
 
 A browser-based horizontal shooter in the style of the classic late-80s arcade games.
 It runs entirely in the browser: plain ES modules, Canvas 2D, and Web Audio. There are no dependencies, no build step, and no asset files.
