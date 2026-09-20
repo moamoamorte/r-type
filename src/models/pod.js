@@ -1,58 +1,136 @@
-// The pod: armoured orb with rotating shell plates and a glowing core.
+// The pod: an angular armoured orb built to match the ship. A faceted energy
+// core sits inside slowly turning armour plates; three claws snap shut when it
+// clamps onto the hull.
 import * as THREE from '../../vendor/three.module.js';
-import { part, toon, glossy, PALETTE as P } from './materials.js';
+import { part, toon } from './materials.js';
 
 const LASER_COLOR = { red: 0xff5a2a, blue: 0x3ac8ff, yellow: 0xffd82a };
 
-export function createPod({ outline = 0.28, color = 'red', level = 1 } = {}) {
+// Same greys as the ship.
+const C = { light: 0xd9dce4, hull: 0xb9bec9, shade: 0x8d93a1, metal: 0x4a4f5c, dark: 0x2a2e38 };
+
+const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+export function createPod({ outline = 0.32, color = 'red' } = {}) {
   const root = new THREE.Group();
+  const body = new THREE.Group();     // takes the clamp jolt
+  root.add(body);
   const spin = new THREE.Group();
-  root.add(spin);
+  body.add(spin);
 
+  const put = (parent, geo, mat, pos = [0, 0, 0], rot = [0, 0, 0], o = outline) => {
+    const g = part(geo, mat, { outline: o });
+    g.position.set(...pos);
+    g.rotation.set(...rot);
+    parent.add(g);
+    return g;
+  };
+
+  // --- faceted core ---------------------------------------------------------
   const coreMat = new THREE.MeshBasicMaterial({ color: LASER_COLOR[color], toneMapped: false });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(3.1, 16, 12), coreMat);
-  root.add(core);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(3.1, 0), coreMat);
+  body.add(core);
 
-  const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(4.4, 16, 12),
-    new THREE.MeshBasicMaterial({ color: LASER_COLOR[color], transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
-  );
-  root.add(halo);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: LASER_COLOR[color], transparent: true, opacity: 0.22,
+    blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  });
+  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(4.6, 0), haloMat);
+  body.add(halo);
 
-  const plates = [];
-  const plateGeo = new THREE.TorusGeometry(5.4, 1.1, 6, 14, Math.PI * 0.62);
+  // --- armour plates around the core ---------------------------------------
+  const plateMats = [toon(C.hull), toon(C.light), toon(C.shade)];
   for (let i = 0; i < 3; i++) {
-    const g = part(plateGeo, toon(P.hull), { outline });
-    g.rotation.set(Math.PI / 2, 0, (i * Math.PI * 2) / 3);
-    spin.add(g);
-    plates.push(g);
+    const arm = new THREE.Group();
+    arm.rotation.x = (i * Math.PI * 2) / 3;
+    spin.add(arm);
+    put(arm, box(7.5, 1.3, 3.4), plateMats[i], [0, 5.2, 0]);
+    put(arm, box(2.6, 1.2, 3.0), toon(C.metal), [3.2, 4.2, 0], [0, 0, -0.6], 0.24);
+    put(arm, box(2.6, 1.2, 3.0), toon(C.metal), [-3.2, 4.2, 0], [0, 0, 0.6], 0.24);
   }
-  const ring = part(new THREE.TorusGeometry(6.6, 0.55, 6, 24), toon(P.gunmetal), { outline: outline * 0.7 });
+  // Faceted ring tying the plates together.
+  const ring = part(new THREE.TorusGeometry(6.4, 0.6, 4, 10), toon(C.metal), { outline: outline * 0.7 });
   ring.rotation.x = Math.PI / 2;
   spin.add(ring);
 
-  for (const s of [1, -1]) {
-    const claw = part(new THREE.BoxGeometry(3.4, 1.1, 1.1), glossy(0xb8c0d0), { outline: 0.18 });
-    claw.position.set(4.6, s * 3.4, 0);
-    claw.rotation.z = s * 0.4;
-    root.add(claw);
+  // --- claws ----------------------------------------------------------------
+  const claws = [];
+  for (let i = 0; i < 3; i++) {
+    const pivot = new THREE.Group();
+    pivot.rotation.x = (i * Math.PI * 2) / 3 + Math.PI / 6;
+    body.add(pivot);
+    const hinge = new THREE.Group();
+    hinge.position.set(3.4, 2.6, 0);
+    pivot.add(hinge);
+    put(hinge, box(5.2, 1.3, 1.6), toon(C.light), [2.2, 0, 0], [0, 0, 0], 0.22);
+    put(hinge, box(2.4, 1.2, 1.4), toon(C.dark), [5.0, -0.9, 0], [0, 0, -0.9], 0.2);
+    claws.push(hinge);
   }
 
+  // --- clamp flash ----------------------------------------------------------
+  const flashMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  });
+  const flash = new THREE.Mesh(new THREE.OctahedronGeometry(4.6, 0), flashMat);
+  flash.visible = false;
+  body.add(flash);
+
   root.rotation.set(0.2, -0.4, 0);
-  let t = 0;
+
+  const OPEN = 0.55, SHUT = -0.12;
+  let t = 0, clampT = -1, open = OPEN, jolt = 0, spinRate = 1.6;
+
+  function setClaws(a) {
+    for (const c of claws) c.rotation.z = a;
+  }
+  setClaws(open);
+
   return {
     group: root,
+    // Snap the claws shut with a jolt - used when the pod docks onto the hull.
+    clamp() {
+      clampT = 0;
+      jolt = 1;
+      flash.visible = true;
+    },
+    // Spring the claws open again when the pod is launched.
+    release() {
+      clampT = -1;
+      open = OPEN;
+      setClaws(open);
+      spinRate = 1.6;
+    },
     update(dt, state = {}) {
       t += dt;
-      spin.rotation.z += dt * 1.6;
-      spin.rotation.x = Math.sin(t * 0.8) * 0.25;
-      const pulse = 1 + Math.sin(t * 5) * 0.06;
+      spin.rotation.z += dt * spinRate;
+      spin.rotation.x = Math.sin(t * 0.8) * 0.18;
+
+      if (clampT >= 0) {
+        clampT += dt;
+        // Fast snap, brief overshoot, then settle.
+        const k = Math.min(1, clampT / 0.09);
+        const over = clampT < 0.09 ? 0 : Math.max(0, 1 - (clampT - 0.09) / 0.22);
+        open = THREE.MathUtils.lerp(OPEN, SHUT, k) - over * 0.12;
+        setClaws(open);
+        spinRate = 1.6 + Math.max(0, 6 * (1 - clampT / 0.3));
+        flashMat.opacity = Math.max(0, 0.5 * (1 - clampT / 0.22));
+        flash.scale.setScalar(1 + clampT * 2.5);
+        if (clampT > 0.22) flash.visible = false;
+      }
+      jolt = Math.max(0, jolt - dt * 6);
+      body.position.x = -jolt * 1.6;
+      body.rotation.z = jolt * 0.12;
+
+      const pulse = 1 + Math.sin(t * 5) * 0.06 + jolt * 0.25;
       core.scale.setScalar(pulse);
+      core.rotation.y += dt * 0.9;
+      core.rotation.z -= dt * 0.5;
       halo.scale.setScalar(pulse * (1 + (state.charge || 0) * 0.3));
+      halo.rotation.copy(core.rotation);
     },
     setColor(c) {
       coreMat.color.set(LASER_COLOR[c]);
-      halo.material.color.set(LASER_COLOR[c]);
+      haloMat.color.set(LASER_COLOR[c]);
     },
     setOutlines(on) { root.traverse((o) => { if (o.name === 'outline') o.visible = on; }); },
     setWireframe(on) { root.traverse((o) => { if (o.isMesh && o.name !== 'outline' && o.material.wireframe !== undefined) o.material.wireframe = on; }); },

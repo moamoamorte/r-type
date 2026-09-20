@@ -76,6 +76,13 @@ export class Render3D {
     const pod = game.pod;
     this.pod.group.visible = !!pod;
     if (pod) {
+      const docked = pod.state === 'front' || pod.state === 'back';
+      if (pod.state !== this.podState) {
+        if (docked) this.pod.clamp();
+        else if (this.podDocked) this.pod.release();
+        this.podState = pod.state;
+        this.podDocked = docked;
+      }
       this.pod.group.position.set(pod.x - cam, -pod.y, 4);
       if (this.podColor !== pod.color) {
         this.podColor = pod.color;

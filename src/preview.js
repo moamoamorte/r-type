@@ -179,6 +179,7 @@ function togglePod() {
 function stepPod() {
   const p = play.pod;
   if (!p.has) return;
+  const wasDocked = p.state === 'front' || p.state === 'back';
   switch (p.state) {
     case 'front': p.x = play.x + 21 * U; p.y = play.y; break;
     case 'back': p.x = play.x - 19 * U; p.y = play.y; break;
@@ -204,8 +205,10 @@ function stepPod() {
     p.y = THREE.MathUtils.clamp(p.y, -46, 46);
     if (p.state !== 'launch' && Math.hypot(play.x - p.x, play.y - p.y) < 18 * U) {
       p.state = p.x > play.x ? 'front' : 'back';
+      models.pod.clamp();
     }
   }
+  if (wasDocked && p.state === 'launch') models.pod.release();
 }
 
 function applyPlay() {
@@ -292,10 +295,11 @@ function runDemo(dt) {
       if (t < 1.3) pod.group.position.copy(lerpV(START, stage, easeOut(t / 1.3)));
       else if (t < 2.2) pod.group.position.copy(lerpV(stage, target, easeOut((t - 1.3) / 0.9)));
       else {
+        if (!demo.clamped) { pod.clamp(); demo.clamped = true; }
         pod.group.position.copy(target);
         pod.group.position.y += Math.sin(t * 6) * 0.25;
       }
-      if (t > 5.5) demo.t = 0;
+      if (t > 5.5) { demo.t = 0; demo.clamped = false; pod.release(); }
       break;
     }
   }
