@@ -10,13 +10,15 @@ import { Player, Pod, Bit, drawShip } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
 import { Boss } from './boss.js';
 import { PowerItem } from './items.js';
+import { Render3D } from './render3d.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 
-const HI_KEY = 'nebula-lance-hi';
+const HI_KEY = 'xiphos-hi';
+const OLD_HI_KEY = 'nebula-lance-hi';   // carry over scores from the old name
 function loadHi() {
-  try { return +localStorage.getItem(HI_KEY) || 20000; } catch { return 20000; }
+  try { return +localStorage.getItem(HI_KEY) || +localStorage.getItem(OLD_HI_KEY) || 20000; } catch { return 20000; }
 }
 function saveHi(v) {
   try { localStorage.setItem(HI_KEY, String(v)); } catch { /* storage unavailable */ }
@@ -31,6 +33,10 @@ class Game {
     this.terrain = buildTerrain();
     this.spawns = buildSpawns();
     this.bg = new Background();
+    // ?flat=1 forces the original 2D sprites (handy for comparing the two).
+    const flat2d = new URLSearchParams(location.search).has('flat');
+    this.r3d = flat2d ? null : Render3D.create(document.getElementById('screen3d'));
+    if (flat2d) document.getElementById('screen3d').style.display = 'none';
     this.fx = new FX();
     this.hi = loadHi();
     this.state = 'title';
@@ -406,8 +412,12 @@ class Game {
     for (const it of this.items) it.draw(ctx, camI);
     for (const b of this.pbullets) b.draw(ctx, camI);
     for (const b of this.bits) b.draw(ctx, camI);
-    if (this.state !== 'clear' || this.player.x - cam < W + 30) this.player.draw(ctx, camI);
-    this.pod?.draw(ctx, camI);
+    const flat = !this.r3d;
+    if (this.state !== 'clear' || this.player.x - cam < W + 30) {
+      if (flat) this.player.draw(ctx, camI);
+      else this.player.drawCharge(ctx, camI);
+    }
+    if (flat) this.pod?.draw(ctx, camI);
     for (const b of this.ebullets) b.draw(ctx, camI);
     this.fx.draw(ctx, cam);
     for (const pu of this.popups) drawText(ctx, pu.text, pu.x - cam, pu.y, pu.color, { align: 'center' });
@@ -416,6 +426,7 @@ class Game {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
+    this.r3d?.render(this);
 
     this.drawHUD();
     this.drawOverlays();
@@ -507,14 +518,18 @@ class Game {
     this.bg.draw(ctx, this.stateT * 0.5, this.t);
     ctx.fillStyle = 'rgba(0,0,10,0.35)';
     ctx.fillRect(0, 0, W, H);
-    drawText(ctx, 'NEBULA LANCE', W / 2, 26, '#8ad8ff', { align: 'center', scale: 3, shadow: '#1a2a7a' });
-    drawText(ctx, 'STAGE 1 - THE HOLLOW STATION', W / 2, 56, '#ffd070', { align: 'center' });
+    drawText(ctx, 'XIPHOS', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
+    drawText(ctx, 'STAGE 1 - THE HOLLOW STATION', W / 2, 60, '#ffd070', { align: 'center' });
 
-    ctx.save();
-    ctx.translate(W / 2, 88 + Math.sin(this.t * 0.05) * 3);
-    ctx.scale(2, 2);
-    drawShip(ctx, 0, 0, 0, true);
-    ctx.restore();
+    if (this.r3d) {
+      this.r3d.renderTitle(this.t);
+    } else {
+      ctx.save();
+      ctx.translate(W / 2, 96 + Math.sin(this.t * 0.05) * 3);
+      ctx.scale(2, 2);
+      drawShip(ctx, 0, 0, 0, true);
+      ctx.restore();
+    }
 
     const lines = [
       ['ARROWS / WASD', 'MOVE'],
@@ -523,11 +538,11 @@ class Game {
       ['P  M  F', 'PAUSE  MUTE  FULLSCREEN'],
     ];
     lines.forEach(([k, v], i) => {
-      drawText(ctx, k, 150, 118 + i * 12, '#ffffff', { align: 'right' });
-      drawText(ctx, v, 162, 118 + i * 12, '#9ab0d0');
+      drawText(ctx, k, 150, 130 + i * 12, '#ffffff', { align: 'right' });
+      drawText(ctx, v, 162, 130 + i * 12, '#9ab0d0');
     });
-    if (this.t % 60 < 40) drawText(ctx, 'PRESS ENTER OR FIRE', W / 2, 176, '#ffffff', { align: 'center', scale: 1 });
-    drawText(ctx, 'HI ' + pad(this.hi), W / 2, 198, '#ffd070', { align: 'center' });
+    if (this.t % 60 < 40) drawText(ctx, 'PRESS ENTER OR FIRE', W / 2, 184, '#ffffff', { align: 'center', scale: 1 });
+    drawText(ctx, 'HI ' + pad(this.hi), W / 2, 204, '#ffd070', { align: 'center' });
 
     ctx.fillStyle = '#000';
     ctx.fillRect(0, H, W, HUD_H);

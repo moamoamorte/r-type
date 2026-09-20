@@ -1,4 +1,4 @@
-# Nebula Lance
+# Xiphos
 
 A browser-based horizontal shooter in the style of the classic late-80s arcade games.
 It runs entirely in the browser: plain ES modules, Canvas 2D, and Web Audio. There are no dependencies, no build step, and no asset files.
@@ -42,6 +42,44 @@ Then open http://localhost:8765. Any other static file server also works. `serve
 - **Dying** sends you back to the last checkpoint and removes all power-ups. You get an extra ship at 50,000 points and every 100,000 after that.
 - **The boss** only takes damage while its armoured iris is open. Parking the pod in the open eye works very well.
 
+## 3D models
+
+The player ship and pod are real 3D models rendered with Three.js (vendored in `vendor/`, no install or build step). They sit on a transparent canvas over the 2D playfield, so all game logic stays 2D. Everything else — terrain, enemies, boss, effects — is still 2D for now.
+
+- The models are built in code, so there are no asset files.
+- Shading is cel-style with ink outlines, to match a hand-drawn anime look.
+- If WebGL is unavailable the game falls back to the original 2D sprites. Add `?flat=1` to the URL to force that.
+
+## Model preview harness
+
+Open http://localhost:8765/preview.html to inspect models without playing. Controls run along the bottom of the page.
+
+**Sequences** play back the animations the game uses:
+
+| Button | Shows |
+| --- | --- |
+| Fly it | Fly the ship yourself with the game's controls (see below) |
+| Idle | The ship flying, banking and idling |
+| Firing | Tap-fire: muzzle flash, recoil and shots |
+| Charged beam | The release of a full charge |
+| Pod flies in | The pod entering from the left, as it does after the first crystal |
+| Pod docks front | The pod approaching and locking onto the nose |
+| Pod docks rear | The same at the tail |
+| Replay | Restarts the current sequence (or press space) |
+
+**Fly it** is a sandbox: arrows or WASD move, `Z`/space fires (hold to charge, release for the beam), `X` launches and recalls the pod. It uses the game's own input handling and the same per-frame constants — speed, charge timing, banking and the pod's state machine — so the handling matches the real game. There is no level, no enemies and nothing to collide with. A frame marks the area you can fly in, and the camera fits it automatically until you zoom manually.
+
+Also available:
+
+- Switch between the ship and the pod, and change the pod's laser colour.
+- Bank angle (manual or automatic), throttle, and pause.
+- Orbit by dragging, zoom by scrolling, or jump to preset angles (game, side, top, front, 3/4, rear).
+- Toggle ink outlines, wireframe and the grid; move the light; change the background.
+- Save a PNG of the current view; frame rate and triangle counts show top-left.
+- Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model, `space` replays.
+
+**Live reload:** while `serve.py` is running, the preview page reloads itself whenever a `.js`, `.html` or `.css` file changes, and returns to the sequence you were on. The server exposes `/__mtime` for this; any other static server just serves the files and the page skips reloading.
+
 ## Code layout
 
 | File | Contents |
@@ -57,5 +95,8 @@ Then open http://localhost:8765. Any other static file server also works. `serve
 | `src/audio.js` | Synthesised sound effects and music sequencer |
 | `src/font.js` | 5×7 bitmap font |
 | `src/input.js` | Keyboard and gamepad input |
+| `src/render3d.js` | 3D layer that draws the ship and pod over the 2D game |
+| `src/models/*.js` | Procedural 3D models and cel-shading materials |
+| `src/preview.js` | Logic for the standalone model preview page |
 
 Adding a stage means writing a new `levelN.js` with `buildTerrain()` and `buildSpawns()`, plus a boss class.

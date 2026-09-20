@@ -279,6 +279,7 @@ export class Player {
     this.charge = 0;
     this.holdT = 0;
     this.tilt = 0;
+    this.turn = 0;
     this.t = 0;
   }
 
@@ -309,6 +310,7 @@ export class Player {
     this.x += dx * this.speed;
     this.y += dy * this.speed;
     this.tilt = lerp(this.tilt, dy, 0.25);
+    this.turn = lerp(this.turn, dx, 0.2);
     this.x = clamp(this.x, g.cam + 16, g.cam + W - 22);
     this.y = clamp(this.y, 10, H - 9);
 
@@ -339,6 +341,7 @@ export class Player {
     if (shots < 6) {
       g.pbullets.push(new PBullet('shot', this.x + 18, this.y, 8, 0, { trail: null }));
       g.audio.play('shot');
+      g.r3d?.ship.fire(1);
     }
     g.pod?.fire();
     for (const b of g.bits) b.fire();
@@ -358,6 +361,7 @@ export class Player {
     }));
     g.fx.add({ k: 'ring', x: this.x + 20, y: this.y, r: 2, vr: 1.5 + L * 0.4, life: 12, max: 12, c: '#aee6ff' });
     g.audio.play('beam', L);
+    g.r3d?.ship.fire(1 + L * 0.4);
   }
 
   draw(ctx, cam) {
@@ -365,7 +369,14 @@ export class Player {
     if (this.inv > 0 && (this.t >> 2) % 2) return;
     const x = Math.round(this.x) - cam, y = Math.round(this.y);
     drawShip(ctx, x, y, this.tilt);
-    if (this.charge > 0) {
+    this.drawCharge(ctx, cam);
+  }
+
+  // Charge orb at the nose; drawn on the 2D layer even when the ship is 3D.
+  drawCharge(ctx, cam) {
+    if (this.dead || this.charge <= 0) return;
+    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    {
       const r = 2 + this.charge * 6 + Math.sin(this.t * 0.6) * 1;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
