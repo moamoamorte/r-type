@@ -3,9 +3,8 @@
 // swept arms forming a compact X when seen from behind.
 // +X is forward, +Y up, +Z out of the screen.
 import * as THREE from '../../vendor/three.module.js';
-import { part, toon, glossy } from './materials.js';
+import { part, toon } from './materials.js';
 
-const TAU = Math.PI * 2;
 const OUT = 0.5;
 
 // Greyscale hull palette; accents kept to the canopy and muzzle.
@@ -19,8 +18,8 @@ const C = {
   teal: 0x17d5ff,
 };
 
-function prism(rTop, rBottom, len, seg = 6) {
-  const g = new THREE.CylinderGeometry(rTop, rBottom, len, seg, 1);
+function prism(rTop, rBottom, len, seg = 6, thetaStart = 0) {
+  const g = new THREE.CylinderGeometry(rTop, rBottom, len, seg, 1, false, thetaStart);
   g.rotateZ(-Math.PI / 2);
   return g;
 }
@@ -74,15 +73,13 @@ export function createShip({ outline = OUT } = {}) {
   nose.position.set(2.5, 0, 0);
   nose.rotation.z = -0.26;
   bank.add(nose);
-  put(nose, prism(1.7, 3.9, 12, 8), mLight, [6, 0, 0], [0, 0, 0], [1, 0.9, 1]);
-  put(nose, box(1.1, 3.0, 3.2), mShade, [12.2, 0, 0], [0, 0, 0], [1, 1, 1], 0.3);
+  put(nose, prism(1.7, 3.9, 12, 6), mLight, [6, 0, 0], [0, 0, 0], [1, 0.9, 1]);
   add(box(7, 1.3, 6.4), mShade, [1, 3.6, 0]);                                    // dorsal deck
   add(box(12, 1.5, 6.2), mPanel, [-4, -3.7, 0]);                                 // belly plate
 
-  // --- cockpit -------------------------------------------------------------
-  const canopyGeo = new THREE.SphereGeometry(2.0, 16, 10, 0, TAU, 0, Math.PI / 2);
-  add(canopyGeo, glass, [4.6, 4.0, 0], [0, 0, 0], [1.9, 0.6, 1.0], 0.18);
-  add(box(6.4, 0.7, 4.6), mMetal, [4.6, 3.6, 0], [0, 0, 0], [1, 1, 1], 0.2);
+  // --- cockpit: faceted wedge sitting on the nose ---------------------------
+  put(nose, box(7, 1.0, 4.2), mMetal, [6.6, 1.5, 0], [0, 0, 0], [1, 1, 1], 0.22);
+  put(nose, prism(0.8, 1.8, 6, 4, Math.PI / 4), glass, [7.4, 2.5, 0], [0, 0, 0], [1, 0.8, 1.15], 0.18);
 
   // --- four short arms in a compact X --------------------------------------
   const flames = [];
@@ -100,14 +97,14 @@ export function createShip({ outline = OUT } = {}) {
     put(arm, prism(1.3, 2.0, 3, 6), mDark, [-0.9, 0, 9.6], [0, 0, 0], [1, 1, 1], 0.26);
 
     const ring = new THREE.Mesh(
-      new THREE.CircleGeometry(1.7, 12),
+      new THREE.CircleGeometry(1.9, 6),
       new THREE.MeshBasicMaterial({ color: 0x9fe8ff, toneMapped: false })
     );
     ring.position.set(-13.3, 0, 9.6);
     ring.rotation.y = -Math.PI / 2;
     arm.add(ring);
 
-    const flameGeo = new THREE.ConeGeometry(1.5, 10, 8, 1, true);
+    const flameGeo = new THREE.ConeGeometry(1.6, 10, 4, 1, true);
     flameGeo.rotateZ(Math.PI / 2);
     const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({
       color: 0x8fe4ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
@@ -120,7 +117,7 @@ export function createShip({ outline = OUT } = {}) {
   // --- greebles ------------------------------------------------------------
   add(box(3.4, 0.6, 2.6), mPanel, [-2, 4.2, 1.8], [0, 0, 0], [1, 1, 1], 0.16);
   add(box(2.6, 0.6, 2.0), mPanel, [-7, 4.0, -1.6], [0, 0, 0], [1, 1, 1], 0.16);
-  for (const s of [1, -1]) add(box(2.0, 1.4, 0.7), glossy(C.shade), [0, 0.2, s * 4.4], [0, 0, 0], [1, 1, 1], 0.16);
+  for (const s of [1, -1]) add(box(2.0, 1.4, 0.7), toon(C.shade), [0, 0.2, s * 4.4], [0, 0, 0], [1, 1, 1], 0.16);
   // Display pose: mostly side-on, turned just enough to show the top and flank.
   root.rotation.set(0.2, -0.3, 0);
 
