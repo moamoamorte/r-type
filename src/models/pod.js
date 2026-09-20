@@ -54,16 +54,19 @@ export function createPod({ outline = 0.32, color = 'red' } = {}) {
   spin.add(ring);
 
   // --- claws ----------------------------------------------------------------
+  // The rig flips so the claws always reach toward the hull they grip.
+  const clawRig = new THREE.Group();
+  body.add(clawRig);
   const claws = [];
   for (let i = 0; i < 3; i++) {
     const pivot = new THREE.Group();
     pivot.rotation.x = (i * Math.PI * 2) / 3 + Math.PI / 6;
-    body.add(pivot);
+    clawRig.add(pivot);
     const hinge = new THREE.Group();
     hinge.position.set(3.4, 2.6, 0);
     pivot.add(hinge);
-    put(hinge, box(5.2, 1.3, 1.6), toon(C.light), [2.2, 0, 0], [0, 0, 0], 0.22);
-    put(hinge, box(2.4, 1.2, 1.4), toon(C.dark), [5.0, -0.9, 0], [0, 0, -0.9], 0.2);
+    put(hinge, box(6.4, 1.3, 1.6), toon(C.light), [2.8, 0, 0], [0, 0, 0], 0.22);
+    put(hinge, box(2.8, 1.2, 1.4), toon(C.dark), [6.2, -1.2, 0], [0, 0, -1.0], 0.2);
     claws.push(hinge);
   }
 
@@ -92,6 +95,11 @@ export function createPod({ outline = 0.32, color = 'red' } = {}) {
       clampT = 0;
       jolt = 1;
       flash.visible = true;
+    },
+    // dir -1 points the claws backward, to grip a nose pushed into them.
+    setGrip(dir) {
+      const want = dir < 0 ? Math.PI : 0;
+      if (clawRig.rotation.y !== want) clawRig.rotation.y = want;
     },
     // Spring the claws open again when the pod is launched.
     release() {

@@ -75,7 +75,8 @@ function stepShots(dt) {
 
 const v = new THREE.Vector3();
 const muzzleWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localToWorld(v.set(14, 0, 0)).clone());
-const nosePointWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localToWorld(v.set(18, 1, 0)).clone());
+// A point just behind the nose tip, so a docked pod swallows the tip.
+const nosePointWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localToWorld(v.set(9.5, 0, 0)).clone());
 const tailPointWorld = () => (scene.updateMatrixWorld(), models.ship.group.localToWorld(v.set(-22, 0, 0)).clone());
 
 // --- fly-it-yourself sandbox ------------------------------------------------
@@ -213,7 +214,12 @@ function stepPod() {
 
 function applyPlay() {
   models.ship.group.position.set(play.x, play.y, 0);
-  models.pod.group.position.set(play.pod.x, play.pod.y, 0);
+  const pd = play.pod;
+  let px = pd.x, py = pd.y;
+  if (pd.state === 'front') { px -= 7 * U; py -= 2.5 * U; models.pod.setGrip(-1); }
+  else if (pd.state === 'back') { px += 5 * U; models.pod.setGrip(1); }
+  else models.pod.setGrip(1);
+  models.pod.group.position.set(px, py, 0);
   chargeMesh.visible = play.charge > 0;
   if (play.charge > 0) {
     const k = 0.4 + play.charge * 1.6;
@@ -295,11 +301,11 @@ function runDemo(dt) {
       if (t < 1.3) pod.group.position.copy(lerpV(START, stage, easeOut(t / 1.3)));
       else if (t < 2.2) pod.group.position.copy(lerpV(stage, target, easeOut((t - 1.3) / 0.9)));
       else {
-        if (!demo.clamped) { pod.clamp(); demo.clamped = true; }
+        if (!demo.clamped) { pod.setGrip(demo.mode === 'dock' ? -1 : 1); pod.clamp(); demo.clamped = true; }
         pod.group.position.copy(target);
         pod.group.position.y += Math.sin(t * 6) * 0.25;
       }
-      if (t > 5.5) { demo.t = 0; demo.clamped = false; pod.release(); }
+      if (t > 5.5) { demo.t = 0; demo.clamped = false; pod.release(); pod.setGrip(1); }
       break;
     }
   }
