@@ -1,8 +1,12 @@
-// Standalone model harness: inspect models and play back game animations
-// (firing, the pod flying in, and the pod docking) without running the game.
+// Standalone model harness: inspect models, play back game animations, or fly
+// the ship yourself with the game's own controls. Never loads the level.
 import * as THREE from '../vendor/three.module.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
+import { Input } from './input.js';
+import { liveReload } from './livereload.js';
+
+liveReload();
 
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: true, preserveDrawingBuffer: true });
@@ -41,10 +45,184 @@ function placeCamera() {
   camera.lookAt(0, 0, 0);
 }
 
-// --- demo sequences ---------------------------------------------------------
+// --- shared projectiles -----------------------------------------------------
+const shots = [];
+const shotMat = new THREE.MeshBasicMaterial({ color: 0xfff0b0, toneMapped: false });
+const beamMat = new THREE.MeshBasicMaterial({
+  color: 0x8fd4ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+});
+const podShotMat = new THREE.MeshBasicMaterial({ color: 0xffa060, toneMapped: false });
+
+function clearShots() {
+  for (const s of shots) scene.remove(s.mesh);
+  shots.length = 0;
+}
+function spawnShot(pos, { mat = shotMat, size = [5, 1.4, 1.4], speed = 150, life = 1.3, grow = false } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(...size), mat);
+  m.position.copy(pos);
+  scene.add(m);
+  shots.push({ mesh: m, life, speed, grow });
+}
+function stepShots(dt) {
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i];
+    s.mesh.position.x += s.speed * dt;
+    s.life -= dt;
+    if (s.grow) s.mesh.scale.x = Math.min(2.4, s.mesh.scale.x + dt * 3);
+    if (s.life <= 0) { scene.remove(s.mesh); shots.splice(i, 1); }
+  }
+}
+
+const v = new THREE.Vector3();
+const muzzleWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localToWorld(v.set(14, 0, 0)).clone());
+const nosePointWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localToWorld(v.set(18, 1, 0)).clone());
+const tailPointWorld = () => (scene.updateMatrixWorld(), models.ship.group.localToWorld(v.set(-22, 0, 0)).clone());
+
+// --- fly-it-yourself sandbox ------------------------------------------------
+// Uses the game's Input and the same per-frame constants, so the handling,
+// charge timing and pod behaviour match the real thing.
+const input = new Input();
+const U = 1 / 0.78;            // game pixels -> preview world units (game scales the model by 0.78)
+const BEAM_POWER = [0, 4, 8, 14, 22, 34];
+const play = {
+  x: -20, y: 0, tilt: 0, charge: 0, holdT: 0, speedLv: 0,
+  pod: { state: 'front', x: 0, y: 0, vx: 0, has: true },
+};
+
+const BOUND_X = 70, BOUND_Y = 42;
+const boundsBox = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.PlaneGeometry(BOUND_X * 2, BOUND_Y * 2)),
+  new THREE.LineBasicMaterial({ color: 0x2f4a5c })
+);
+boundsBox.visible = false;
+scene.add(boundsBox);
+
+const chargeMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(3, 3, 3),
+  new THREE.MeshBasicMaterial({ color: 0xaee6ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
+);
+chargeMesh.position.set(15.5, 0, 0);
+chargeMesh.visible = false;
+models.ship.nose.add(chargeMesh);
+
+let autoFrame = true;
+function fitPlayArea() {
+  const fov = (camera.fov * Math.PI) / 180;
+  const needH = (BOUND_Y + 26) / Math.tan(fov / 2);
+  const needW = (BOUND_X + 26) / (Math.tan(fov / 2) * Math.max(0.2, camera.aspect));
+  cam.dist = Math.max(needH, needW);
+  cam.az = 0;
+  cam.el = 0;
+  $('zoom').value = Math.round(Math.min(320, cam.dist));
+  $('zoomV').textContent = Math.round(Math.min(320, cam.dist));
+}
+
+function resetPlay() {
+  play.x = -20; play.y = 0; play.tilt = 0; play.charge = 0; play.holdT = 0;
+  Object.assign(play.pod, { state: 'front', x: 0, y: 0, vx: 0, has: true });
+  clearShots();
+}
+
+// One fixed 60 Hz step, mirroring Player.update / Pod.update.
+function stepPlay() {
+  input.poll();
+  const speed = (1.3 + play.speedLv * 0.35) * U;
+  let dx = 0, dy = 0;
+  if (input.held('left')) dx--;
+  if (input.held('right')) dx++;
+  if (input.held('up')) dy--;
+  if (input.held('down')) dy++;
+  if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
+  play.x = THREE.MathUtils.clamp(play.x + dx * speed, -BOUND_X, BOUND_X);
+  play.y = THREE.MathUtils.clamp(play.y - dy * speed, -BOUND_Y, BOUND_Y);   // screen y is inverted in world space
+  play.tilt = THREE.MathUtils.lerp(play.tilt, dy, 0.25);
+
+  if (input.pressed('fire')) {
+    models.ship.fire(1);
+    spawnShot(muzzleWorld());
+    if (play.pod.has && play.pod.state !== 'front' && play.pod.state !== 'back') {
+      spawnShot(new THREE.Vector3(play.pod.x + 8, play.pod.y, 0), { mat: podShotMat, size: [4, 2, 2], speed: 120, life: 1.1 });
+    }
+    play.holdT = 0;
+  }
+  if (input.held('fire')) {
+    play.holdT++;
+    if (play.holdT > 10) play.charge = Math.min(1, play.charge + 1 / 80);
+  } else {
+    if (play.charge >= 0.2) {
+      const L = THREE.MathUtils.clamp(Math.ceil(play.charge * 5), 1, 5);
+      models.ship.fire(1 + L * 0.4);
+      const p = muzzleWorld();
+      p.x += 10 + L * 3;
+      spawnShot(p, { mat: beamMat, size: [10 + L * 8, 2 + L * 1.6, 2 + L * 1.6], speed: 200, life: 1.4, grow: true });
+    }
+    play.charge = 0;
+    play.holdT = 0;
+  }
+  if (input.pressed('pod')) togglePod();
+  stepPod();
+}
+
+function togglePod() {
+  const p = play.pod;
+  if (!p.has) return;
+  switch (p.state) {
+    case 'front': p.state = 'launch'; p.vx = 6.5 * U; break;
+    case 'back': p.state = 'launch'; p.vx = -5.5 * U; break;
+    case 'free':
+    case 'launch': p.state = 'recall'; break;
+    case 'recall': p.state = 'free'; break;
+  }
+}
+
+function stepPod() {
+  const p = play.pod;
+  if (!p.has) return;
+  switch (p.state) {
+    case 'front': p.x = play.x + 21 * U; p.y = play.y; break;
+    case 'back': p.x = play.x - 19 * U; p.y = play.y; break;
+    case 'free':
+      p.y = THREE.MathUtils.lerp(p.y, play.y, 0.035);
+      break;
+    case 'launch':
+      p.x += p.vx;
+      p.vx *= 0.94;
+      if (Math.abs(p.vx) < 0.7 * U || p.x > 95 || p.x < -95) p.state = 'free';
+      break;
+    case 'recall': {
+      const dx = play.x - p.x, dy = play.y - p.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const s = Math.min(d, 5.5 * U);
+      p.x += (dx / d) * s;
+      p.y += (dy / d) * s;
+      break;
+    }
+  }
+  if (p.state !== 'front' && p.state !== 'back') {
+    p.x = THREE.MathUtils.clamp(p.x, -95, 95);
+    p.y = THREE.MathUtils.clamp(p.y, -46, 46);
+    if (p.state !== 'launch' && Math.hypot(play.x - p.x, play.y - p.y) < 18 * U) {
+      p.state = p.x > play.x ? 'front' : 'back';
+    }
+  }
+}
+
+function applyPlay() {
+  models.ship.group.position.set(play.x, play.y, 0);
+  models.pod.group.position.set(play.pod.x, play.pod.y, 0);
+  chargeMesh.visible = play.charge > 0;
+  if (play.charge > 0) {
+    const k = 0.4 + play.charge * 1.6;
+    chargeMesh.scale.setScalar(k);
+    chargeMesh.material.opacity = 0.5 + 0.5 * play.charge;
+  }
+}
+
+// --- scripted sequences -----------------------------------------------------
 const POD_DEMOS = new Set(['arrive', 'dock', 'dockback']);
 const CAPTIONS = {
   idle: '',
+  play: 'Arrows / WASD fly, Z or space fires (hold to charge), X launches and recalls the pod',
   fire: 'Tap fire: muzzle flash and recoil',
   beam: 'Hold fire, then release: charged beam',
   arrive: 'The pod flies in from the left after the first crystal',
@@ -52,19 +230,10 @@ const CAPTIONS = {
   dockback: 'The pod docks at the tail',
 };
 const demo = { mode: 'idle', t: 0, next: 0 };
-const shots = [];
-const shotMat = new THREE.MeshBasicMaterial({ color: 0xfff0b0, toneMapped: false });
-const beamMat = new THREE.MeshBasicMaterial({
-  color: 0x8fd4ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
-});
-
-function clearShots() {
-  for (const s of shots) scene.remove(s.mesh);
-  shots.length = 0;
-}
 
 function setDemo(mode) {
   demo.mode = mode;
+  try { sessionStorage.setItem('preview-demo', mode); } catch { /* private mode */ }
   demo.t = 0;
   demo.next = 0;
   clearShots();
@@ -75,20 +244,12 @@ function setDemo(mode) {
     current = 'ship';
   }
   models.pod.group.rotation.set(...basePose.pod, 0);
-}
-
-const v = new THREE.Vector3();
-function muzzleWorld() {
-  scene.updateMatrixWorld();
-  return models.ship.nose.localToWorld(v.set(14, 0, 0)).clone();
-}
-function nosePointWorld() {
-  scene.updateMatrixWorld();
-  return models.ship.nose.localToWorld(v.set(18, 1, 0)).clone();
-}
-function tailPointWorld() {
-  scene.updateMatrixWorld();
-  return models.ship.group.localToWorld(v.set(-22, 0, 0)).clone();
+  boundsBox.visible = mode === 'play';
+  if (mode === 'play') { resetPlay(); autoFrame = true; }
+  else {
+    models.ship.group.position.set(0, 0, 0);
+    chargeMesh.visible = false;
+  }
 }
 
 const easeOut = (k) => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
@@ -100,33 +261,26 @@ function runDemo(dt) {
   const ship = models.ship, pod = models.pod;
   demo.t += dt;
   const t = demo.t;
-
   switch (demo.mode) {
     case 'fire':
       if (t >= demo.next) {
         demo.next = t + 0.22;
         ship.fire(1);
-        const m = new THREE.Mesh(new THREE.BoxGeometry(5, 1.4, 1.4), shotMat);
-        m.position.copy(muzzleWorld());
-        scene.add(m);
-        shots.push({ mesh: m, life: 1.3, speed: 150 });
+        spawnShot(muzzleWorld());
       }
       break;
     case 'beam':
       if (t >= demo.next) {
         demo.next = t + 1.8;
         ship.fire(3.4);
-        const m = new THREE.Mesh(new THREE.BoxGeometry(34, 5, 5), beamMat);
-        m.position.copy(muzzleWorld());
-        m.position.x += 18;
-        scene.add(m);
-        shots.push({ mesh: m, life: 1.4, speed: 200, grow: true });
+        const p = muzzleWorld();
+        p.x += 18;
+        spawnShot(p, { mat: beamMat, size: [34, 5, 5], speed: 200, life: 1.4, grow: true });
       }
       break;
     case 'arrive': {
-      const k = easeOut(t / 1.9);
-      pod.group.position.copy(lerpV(START, HOVER, k));
-      pod.group.position.y += Math.sin(t * 2.4) * (1.5 * k);
+      pod.group.position.copy(lerpV(START, HOVER, easeOut(t / 1.9)));
+      pod.group.position.y += Math.sin(t * 2.4) * 1.5 * easeOut(t / 1.9);
       if (t > 5) demo.t = 0;
       break;
     }
@@ -134,25 +288,15 @@ function runDemo(dt) {
     case 'dockback': {
       const target = demo.mode === 'dock' ? nosePointWorld() : tailPointWorld();
       const stage = new THREE.Vector3(target.x - 46, target.y + 26, 0);
-      if (t < 1.3) {
-        pod.group.position.copy(lerpV(START, stage, easeOut(t / 1.3)));
-      } else if (t < 2.2) {
-        pod.group.position.copy(lerpV(stage, target, easeOut((t - 1.3) / 0.9)));
-      } else {
+      if (t < 1.3) pod.group.position.copy(lerpV(START, stage, easeOut(t / 1.3)));
+      else if (t < 2.2) pod.group.position.copy(lerpV(stage, target, easeOut((t - 1.3) / 0.9)));
+      else {
         pod.group.position.copy(target);
-        pod.group.position.y += Math.sin(t * 6) * 0.25;   // settle wobble
+        pod.group.position.y += Math.sin(t * 6) * 0.25;
       }
       if (t > 5.5) demo.t = 0;
       break;
     }
-  }
-
-  for (let i = shots.length - 1; i >= 0; i--) {
-    const s = shots[i];
-    s.mesh.position.x += s.speed * dt;
-    s.life -= dt;
-    if (s.grow) s.mesh.scale.x = Math.min(2.4, s.mesh.scale.x + dt * 3);
-    if (s.life <= 0) { scene.remove(s.mesh); shots.splice(i, 1); }
   }
 }
 
@@ -172,6 +316,7 @@ view.addEventListener('pointermove', (e) => {
 view.addEventListener('wheel', (e) => {
   e.preventDefault();
   cam.dist = THREE.MathUtils.clamp(cam.dist + e.deltaY * 0.12, 40, 320);
+  autoFrame = false;
   $('zoom').value = Math.round(cam.dist);
   $('zoomV').textContent = Math.round(cam.dist);
 }, { passive: false });
@@ -186,7 +331,7 @@ const bindRange = (id, fn) => {
 };
 bindRange('bank', (val) => { state.bank = val; state.autoBank = false; $('autoBank').checked = false; });
 bindRange('throttle', (val) => { state.throttle = val; });
-bindRange('zoom', (val) => { cam.dist = val; });
+bindRange('zoom', (val) => { cam.dist = val; autoFrame = false; });
 bindRange('lightA', (val) => {
   const a = (val * Math.PI) / 180;
   key.position.set(Math.cos(a) * 60, 45, Math.sin(a) * 60);
@@ -220,6 +365,7 @@ $('shot').addEventListener('click', () => {
   a.click();
 });
 addEventListener('keydown', (e) => {
+  if (demo.mode === 'play') return;   // keys belong to the sandbox while flying
   if (e.key === 'r') { cam.az = 0; cam.el = 0; cam.dist = 160; }
   if (e.key === 'o') { const c = $('outline'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); }
   if (e.key === '1') { $('model').value = 'ship'; current = 'ship'; setDemo('idle'); }
@@ -227,27 +373,44 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); setDemo(demo.mode); }
 });
 
+// Live reload drops you back in wherever you were.
+let startMode = 'idle';
+try { startMode = sessionStorage.getItem('preview-demo') || 'idle'; } catch { /* private mode */ }
+setDemo(startMode);
+
 // --- loop -------------------------------------------------------------------
 const hud = document.getElementById('hud');
-let last = performance.now(), fps = 60, t = 0;
+let last = performance.now(), fps = 60, t = 0, acc = 0;
+const STEP = 1 / 60;
+
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   fps += (1000 / Math.max(1, now - (frame.prev || now)) - fps) * 0.1;
   frame.prev = now;
 
-  const podDemo = POD_DEMOS.has(demo.mode);
-  models.ship.group.visible = current === 'ship' || podDemo;
-  models.pod.group.visible = current === 'pod' || podDemo;
-  if (!podDemo && current === 'pod') models.pod.group.position.set(0, 0, 0);
+  const playing = demo.mode === 'play';
+  const podVisible = playing ? play.pod.has : POD_DEMOS.has(demo.mode) || current === 'pod';
+  models.ship.group.visible = current === 'ship' || POD_DEMOS.has(demo.mode) || playing;
+  models.pod.group.visible = podVisible;
+  if (!playing && !POD_DEMOS.has(demo.mode) && current === 'pod') models.pod.group.position.set(0, 0, 0);
 
   if (!state.pause) {
     t += dt;
-    if (state.autoBank) state.bank = Math.sin(t * 1.1);
-    models.ship.update(dt, { bank: state.bank, throttle: state.throttle });
-    models.pod.update(dt, {});
-    runDemo(dt);
-    if (state.spin) models[current].group.rotation.y += dt * 0.6;
+    if (playing) {
+      acc += dt;
+      let steps = 0;
+      while (acc >= STEP && steps++ < 5) { stepPlay(); acc -= STEP; }
+      applyPlay();
+      models.ship.update(dt, { bank: -play.tilt, throttle: state.throttle });
+    } else {
+      if (state.autoBank) state.bank = Math.sin(t * 1.1);
+      models.ship.update(dt, { bank: state.bank, throttle: state.throttle });
+      runDemo(dt);
+      if (state.spin) models[current].group.rotation.y += dt * 0.6;
+    }
+    models.pod.update(dt, { charge: playing ? play.charge : 0 });
+    stepShots(dt);
   }
 
   const w = view.clientWidth, h = view.clientHeight;
@@ -256,13 +419,16 @@ function frame(now) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
+  if (playing && autoFrame) fitPlayArea();
   placeCamera();
   renderer.render(scene, camera);
 
   const info = renderer.info.render;
-  hud.textContent = `${current}  ${demo.mode}  ${fps.toFixed(0)} fps  ${info.triangles} tris  ${info.calls} calls`;
+  hud.textContent = playing
+    ? `fly  charge ${(play.charge * 100).toFixed(0)}%  pod ${play.pod.state}  ${fps.toFixed(0)} fps`
+    : `${current}  ${demo.mode}  ${fps.toFixed(0)} fps  ${info.triangles} tris  ${info.calls} calls`;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-window.__preview = { scene, camera, cam, models, state, renderer, demo, setDemo };
+window.__preview = { scene, camera, cam, models, state, renderer, demo, setDemo, play, input };

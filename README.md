@@ -58,6 +58,7 @@ Open http://localhost:8765/preview.html to inspect models without playing. Contr
 
 | Button | Shows |
 | --- | --- |
+| Fly it | Fly the ship yourself with the game's controls (see below) |
 | Idle | The ship flying, banking and idling |
 | Firing | Tap-fire: muzzle flash, recoil and shots |
 | Charged beam | The release of a full charge |
@@ -65,6 +66,8 @@ Open http://localhost:8765/preview.html to inspect models without playing. Contr
 | Pod docks front | The pod approaching and locking onto the nose |
 | Pod docks rear | The same at the tail |
 | Replay | Restarts the current sequence (or press space) |
+
+**Fly it** is a sandbox: arrows or WASD move, `Z`/space fires (hold to charge, release for the beam), `X` launches and recalls the pod. It uses the game's own input handling and the same per-frame constants — speed, charge timing, banking and the pod's state machine — so the handling matches the real game. There is no level, no enemies and nothing to collide with. A frame marks the area you can fly in, and the camera fits it automatically until you zoom manually.
 
 Also available:
 
@@ -74,6 +77,8 @@ Also available:
 - Toggle ink outlines, wireframe and the grid; move the light; change the background.
 - Save a PNG of the current view; frame rate and triangle counts show top-left.
 - Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model, `space` replays.
+
+**Live reload:** while `serve.py` is running, the preview page reloads itself whenever a `.js`, `.html` or `.css` file changes, and returns to the sequence you were on. The server exposes `/__mtime` for this; any other static server just serves the files and the page skips reloading.
 
 ## Code layout
 
