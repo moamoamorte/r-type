@@ -26,6 +26,26 @@ Small, self-contained, and they remove known rough edges.
 - [ ] **Play the whole stage and tune it.** The difficulty curve, enemy placement and power-up pacing have never been checked end to end. Expect real bugs to surface here. *Medium — the highest-value item on this list.*
 - [ ] **Sound for the new animations.** The pod clamp and the muzzle flash are silent; both want a short synthesised effect. *Small.*
 
+## Gameplay changes
+
+- [ ] **Ship shields instead of one-hit deaths.** Each hit takes a shield point; when the shields are gone the next hit destroys the ship. This is the biggest change to how the game feels since stage 1 was built, and it touches difficulty everywhere. *Medium.*
+
+  **Behaviour to build:**
+  - Shield points on the player, shown in the HUD (a segmented bar or pips next to the beam meter).
+  - Taking a hit: lose a point, brief invulnerability so one bullet cannot drain the whole bar, a flash on the ship and a hit sound distinct from the explosion.
+  - A visible shield around the ship in the 3D layer — an angular faceted bubble matching the art style, brightest when full, flickering and thinner as it weakens, with an impact ripple at the point of contact.
+  - Losing the last point: the existing death, explosion and checkpoint flow, unchanged.
+
+  **Decisions needed before building:**
+  - **How many points?** Suggest 3, enough to matter without removing the threat.
+  - **Do shields regenerate?** Suggest no regeneration over time, but shields refill at a checkpoint and on a new life. A slow regen makes the stage much easier and undercuts careful play.
+  - **Does terrain still kill instantly?** Suggest yes — flying into a wall being fatal is what makes the corridors tense, and shields should not turn terrain into a nuisance instead of a threat.
+  - **Does the boss's contact damage still kill instantly?** Suggest it costs a point like anything else, for consistency.
+  - **How are shields restored or upgraded?** Either a new power-up dropped by carriers, or extra points awarded with existing pickups. Suggest a dedicated pickup so the bar can be topped up deliberately.
+  - **What happens to the difficulty balance?** With 3 points the stage becomes noticeably easier; enemy placement and bullet volume will need a pass afterwards. Worth doing alongside the full playthrough tuning above.
+
+  **Touches:** `player.js` (state, invulnerability window), `main.js` (`collide()`, `killPlayer()`, HUD, checkpoint reset), `render3d.js` and a new shield model, `audio.js` (hit sound), and `level1.js` if a shield pickup is added.
+
 ## 3D conversion (after the art-target decision)
 
 In order; each stage leaves the game playable.
