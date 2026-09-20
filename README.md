@@ -72,7 +72,6 @@ Also available:
 - Bank angle (manual or automatic), throttle, and pause.
 - Orbit by dragging, zoom by scrolling, or jump to preset angles (game, side, top, front, 3/4, rear).
 - Toggle ink outlines, wireframe and the grid; move the light; change the background.
-- Live thumbnails show the model at actual in-game size (1x, 2x, 3x) so you can judge readability.
 - Save a PNG of the current view; frame rate and triangle counts show top-left.
 - Shortcuts: `R` resets the view, `O` toggles outlines, `1`/`2` switch model, `space` replays.
 

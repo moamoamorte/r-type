@@ -227,20 +227,6 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); setDemo(demo.mode); }
 });
 
-// --- in-game size thumbnails ------------------------------------------------
-const strip = [1, 2, 3].map((n) => {
-  const c = document.getElementById('px' + n);
-  c.style.width = (n === 1 ? 128 : c.width) + 'px';
-  c.style.height = (n === 1 ? 128 : c.height) + 'px';
-  const ctx = c.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  return { ctx, size: c.width };
-});
-const pxRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
-const pxCam = new THREE.OrthographicCamera(-34, 34, 34, -34, -500, 1000);
-pxCam.position.set(0, 0, 200);
-pxCam.lookAt(0, 0, 0);
-
 // --- loop -------------------------------------------------------------------
 const hud = document.getElementById('hud');
 let last = performance.now(), fps = 60, t = 0;
@@ -272,16 +258,6 @@ function frame(now) {
   }
   placeCamera();
   renderer.render(scene, camera);
-
-  const saveBg = scene.background;
-  scene.background = null;
-  for (const s of strip) {
-    pxRenderer.setSize(s.size, s.size, false);
-    pxRenderer.render(scene, pxCam);
-    s.ctx.clearRect(0, 0, s.size, s.size);
-    s.ctx.drawImage(pxRenderer.domElement, 0, 0, s.size, s.size);
-  }
-  scene.background = saveBg;
 
   const info = renderer.info.render;
   hud.textContent = `${current}  ${demo.mode}  ${fps.toFixed(0)} fps  ${info.triangles} tris  ${info.calls} calls`;
