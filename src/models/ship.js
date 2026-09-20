@@ -17,7 +17,6 @@ const C = {
   metal: 0x4a4f5c,
   dark: 0x2a2e38,
   teal: 0x17d5ff,
-  muzzle: 0xff7a1f,
 };
 
 function prism(rTop, rBottom, len, seg = 6) {
@@ -70,11 +69,15 @@ export function createShip({ outline = OUT } = {}) {
   // --- fuselage: wide at the engines, tapering to a point at the nose ------
   add(box(5, 6.4, 8.2), mMetal, [-14, 0, 0], [0, 0, 0], [1, 1, 1], 0.4);        // engine block
   add(prism(3.9, 4.6, 14, 8), mHull, [-4.5, 0, 0], [0, 0, 0], [1, 0.92, 1.08]); // mid body
-  add(prism(1.7, 3.9, 12, 8), mLight, [8.5, 0, 0], [0, 0, 0], [1, 0.9, 1]);     // forward taper
-  add(prism(0.22, 1.7, 5.5, 6), mShade, [17.2, 0, 0]);                           // nose point
+  // Forward section hinges off the mid body and crooks downward.
+  const nose = new THREE.Group();
+  nose.position.set(2.5, 0, 0);
+  nose.rotation.z = -0.26;
+  bank.add(nose);
+  put(nose, prism(1.7, 3.9, 12, 8), mLight, [6, 0, 0], [0, 0, 0], [1, 0.9, 1]);
+  put(nose, box(1.1, 3.0, 3.2), mShade, [12.2, 0, 0], [0, 0, 0], [1, 1, 1], 0.3);
   add(box(7, 1.3, 6.4), mShade, [1, 3.6, 0]);                                    // dorsal deck
   add(box(12, 1.5, 6.2), mPanel, [-4, -3.7, 0]);                                 // belly plate
-  add(box(3.4, 1.0, 4.2), mDark, [11, 1.9, 0], [0, 0, 0], [1, 1, 1], 0.22);      // sensor spine
 
   // --- cockpit -------------------------------------------------------------
   const canopyGeo = new THREE.SphereGeometry(2.0, 16, 10, 0, TAU, 0, Math.PI / 2);
@@ -114,21 +117,10 @@ export function createShip({ outline = OUT } = {}) {
     flames.push(flame);
   }
 
-  // --- cannons, tucked along the taper so the point stays clear -------------
-  for (const s of [1, -1]) {
-    add(box(6, 1.8, 2.0), mDark, [7, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.3);
-    add(prism(0.7, 0.85, 5.5, 6), mMetal, [12.5, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.24);
-    add(box(1.0, 1.0, 1.0), toon(C.muzzle), [15.4, -1.8, s * 2.6], [0, 0, 0], [1, 1, 1], 0.18);
-  }
-
   // --- greebles ------------------------------------------------------------
   add(box(3.4, 0.6, 2.6), mPanel, [-2, 4.2, 1.8], [0, 0, 0], [1, 1, 1], 0.16);
   add(box(2.6, 0.6, 2.0), mPanel, [-7, 4.0, -1.6], [0, 0, 0], [1, 1, 1], 0.16);
   for (const s of [1, -1]) add(box(2.0, 1.4, 0.7), glossy(C.shade), [0, 0.2, s * 4.4], [0, 0, 0], [1, 1, 1], 0.16);
-  const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 8), glossy(C.light));
-  sensor.position.set(9.5, 2.9, 0);
-  bank.add(sensor);
-
   // Display pose: mostly side-on, turned just enough to show the top and flank.
   root.rotation.set(0.2, -0.3, 0);
 
