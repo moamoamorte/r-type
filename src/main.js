@@ -690,4 +690,12 @@ function frame(now) {
     console.error(err);
   }
 }
-requestAnimationFrame(frame);
+
+// ?smoke=1: run headlessly instead of on rAF, see tools/smoke.py. A top-level
+// await here holds the page's load event until it's done.
+if (new URLSearchParams(location.search).has('smoke')) {
+  const { runSmoke } = await import('./smoke.js');
+  runSmoke(game);
+} else {
+  requestAnimationFrame(frame);
+}

@@ -23,6 +23,8 @@ python3 serve.py
 
 Then open http://localhost:8765. Any other static file server also works. `serve.py` just disables caching so edits always reload.
 
+There's no automated test suite, but `python3 tools/smoke.py` is a headless smoke test: it boots the game and plays it for a few hundred frames at every checkpoint plus the boss, and fails on any console error or exception. It needs a Chromium/Chrome binary on the machine already (no dependencies installed).
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

@@ -32,7 +32,9 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 ## Testing
 
-There is no automated test suite. Verify in the browser:
+`python3 tools/smoke.py` is a headless smoke test: it boots the game at every checkpoint plus the boss, fakes input for a few hundred frames at each, and fails on any console error or exception (3D and `?flat=1` both). Run it after changes that touch the game loop, spawning or collision. It needs a Chromium/Chrome binary already on the machine (set `CHROME=/path/to/binary` if it can't find one) — no dependencies to install.
+
+Beyond that there is no automated test suite. Verify in the browser:
 
 - `window.game` (game page) and `window.__preview` (harness) are exposed for driving state from the console.
 - Typical loop: start a server, navigate, drive state via JS, screenshot, read console errors.
