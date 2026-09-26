@@ -85,7 +85,7 @@ The 2D canvas draws background, terrain, enemies, items, projectiles, effects an
 - Internal resolution is **3x** the logical size (1152×672), so the 3D models are far sharper than the 2D pixel art. This mismatch is being resolved by rendering both layers at display resolution — see DECISIONS §15 and [#4](https://github.com/moamoamorte/r-type/issues/4).
 - The ship model is scaled 0.78 and the pod 0.72, which is what makes them the right size on a 384px-wide field.
 - `Render3D.create()` returns `null` when WebGL is unavailable, and the game falls back to the original 2D sprites. `?flat=1` forces that path.
-- The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.
+- The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. The ship model uses only dip's magnitude, so the nose drops whichever way the ship slides. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.
 - `renderTitle(t)` poses the ship larger and turning for the title screen; `render()` resets scale and pose.
 
 ## Models
