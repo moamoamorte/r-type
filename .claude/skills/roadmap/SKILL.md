@@ -38,10 +38,14 @@ Read the whole issue, including its comments, before starting. If the issue is t
 
 **Implement.** Follow the fix the issue recommends unless the code shows it's wrong. If it is wrong, say so in the PR. Keep the change to what the issue asks for. Anything else you notice becomes a new issue (step 4), not part of this diff.
 
-**Verify in the browser.** There's no test suite. Show the change working, and show the bug beforehand when it's a bug.
+**Verify in the browser.** There's no test suite beyond `tools/smoke.py`'s scripted pass. Show the change working, and show the bug beforehand when it's a bug.
 
 - Start the server in the background with `python3 serve.py` (port 8765).
-- Playwright is installed globally; import it from `$(npm root -g)/playwright/index.mjs`. Launch with `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'` (check the version under `/opt/pw-browsers`) and `args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader']` so the WebGL layer renders. Never run `playwright install`.
+- Console-error baseline: run `python3 tools/smoke.py`. It scripts a few hundred frames at every checkpoint plus the warning and boss camera, in both the 3D layer and `?flat=1`, and fails on any console error or exception. It finds its own local Chromium/Chrome (including the macOS app path) — no Playwright needed for this part.
+- For interactive driving — screenshots, stepping the sim by hand, feeding one-off state — use whichever browser tool is actually available:
+  - **Desktop app:** the in-app browser pane. `preview_start` with the `http://localhost:8765/...` URL, `javascript_tool` to drive `window.game` / `window.__preview`, `read_console_messages` / `read_network_requests` for errors, `computer` for screenshots and zoomed crops.
+  - **Cloud sandbox:** Playwright, installed globally; import it from `$(npm root -g)/playwright/index.mjs`. Launch with `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'` (check the version under `/opt/pw-browsers`) and `args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader']` so the WebGL layer renders. Never run `playwright install`.
+  - **Neither available** (e.g. a local CLI session with no pane and no global Playwright): rely on `tools/smoke.py`'s pass/fail signal and console output; skip screenshots rather than improvising an installation.
 - Drive state through `window.game` (game) or `window.__preview` (harness). Useful moves:
   - Start play: `game.newGame()`, then set `game.banner = null` and `game.player.entering = false`.
   - Make the player immortal: `game.killPlayer = () => {}`.
