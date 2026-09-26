@@ -1,19 +1,10 @@
 // Player ship, the detachable pod, satellite bits, and all player projectiles.
 import { W, H, clamp, lerp, TAU, angleTo, turnToward } from './util.js';
 import { LASER_HUE } from './items.js';
-
-const BEAM = {
-  hw: [0, 10, 16, 24, 32, 42],
-  hh: [0, 3, 4, 6, 8, 10],
-  power: [0, 4, 8, 14, 22, 34],
-};
-
-// Docked pod centre relative to the ship, in game pixels (screen y down).
-// Set so the pod swallows the 3D model's nose tip, or caps its tail.
-export const DOCK = {
-  front: { x: 14, y: 2.5 },
-  back: { x: -14, y: 0 },
-};
+import {
+  shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, BEAM, DOCK,
+  POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
+} from './tuning.js';
 
 // ---------------------------------------------------------------------------
 export class PBullet {
@@ -290,7 +281,7 @@ export class Player {
     this.t = 0;
   }
 
-  get speed() { return 1.3 + this.speedLv * 0.35; }
+  get speed() { return shipSpeed(this.speedLv); }
   // Centre of the (small) hit circle.
   get hx() { return this.x + 1; }
   get hy() { return this.y; }
@@ -316,8 +307,8 @@ export class Player {
     if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
     this.x += dx * this.speed;
     this.y += dy * this.speed;
-    this.tilt = lerp(this.tilt, dy, 0.25);
-    this.turn = lerp(this.turn, dx, 0.2);
+    this.tilt = lerp(this.tilt, dy, TILT_EASE);
+    this.turn = lerp(this.turn, dx, TURN_EASE);
     this.x = clamp(this.x, g.cam + 16, g.cam + W - 22);
     this.y = clamp(this.y, 10, H - 9);
 
@@ -327,14 +318,14 @@ export class Player {
     if (inp.pressed('fire')) { this.fire(); this.holdT = 0; }
     if (inp.held('fire')) {
       this.holdT++;
-      if (this.holdT > 10) {
+      if (this.holdT > CHARGE_DELAY) {
         if (this.charge === 0) g.audio.chargeStart();
-        this.charge = Math.min(1, this.charge + 1 / 80);
+        this.charge = Math.min(1, this.charge + CHARGE_RATE);
         g.audio.chargeSet(this.charge);
         if (this.t % 2 === 0) g.fx.suck(this.x + 22, this.y, this.charge >= 1 ? '#ffffff' : '#8ad8ff');
       }
     } else {
-      if (this.charge >= 0.2) this.fireBeam();
+      if (this.charge >= BEAM_MIN_CHARGE) this.fireBeam();
       if (this.charge > 0) { this.charge = 0; g.audio.chargeStop(); }
       this.holdT = 0;
     }
@@ -362,7 +353,7 @@ export class Player {
 
   fireBeam() {
     const g = this.g;
-    const L = clamp(Math.ceil(this.charge * 5), 1, 5);
+    const L = beamLevel(this.charge);
     g.pbullets.push(new PBullet('beam', this.x + 16 + BEAM.hw[L], this.y, 8.5, 0, {
       hw: BEAM.hw[L], hh: BEAM.hh[L], power: BEAM.power[L], level: L, hitSet: new Set(), trail: null,
     }));
@@ -432,19 +423,19 @@ export class Pod {
         break;
       case 'free':
         this.x += g.scrollDelta;
-        this.y = lerp(this.y, p.y, 0.035);
+        this.y = lerp(this.y, p.y, POD_FOLLOW);
         break;
       case 'launch': {
         this.x += g.scrollDelta + this.vx;
-        this.vx *= 0.94;
+        this.vx *= POD_LAUNCH_DRAG;
         const sx = this.x - g.cam;
-        if (Math.abs(this.vx) < 0.7 || sx > W - 20 || sx < 16) this.state = 'free';
+        if (Math.abs(this.vx) < POD_LAUNCH_STOP || sx > W - 20 || sx < 16) this.state = 'free';
         break;
       }
       case 'recall': {
         const dx = p.x - this.x, dy = p.y - this.y;
         const d = Math.hypot(dx, dy) || 1;
-        const s = Math.min(d, 5.5);
+        const s = Math.min(d, POD_RECALL_SPEED);
         this.x += g.scrollDelta + (dx / d) * s;
         this.y += (dy / d) * s;
         break;
@@ -463,7 +454,7 @@ export class Pod {
       this.x = clamp(this.x, g.cam + 10, g.cam + W - 10);
       this.y = clamp(this.y, 10, H - 10);
       if (this.state !== 'launch' && this.state !== 'arrive' && !p.dead && !p.entering &&
-          Math.hypot(p.x - this.x, p.y - this.y) < 18) {
+          Math.hypot(p.x - this.x, p.y - this.y) < POD_GRAB_DIST) {
         this.attach(this.x > p.x ? 'front' : 'back');
       }
     }
@@ -477,8 +468,8 @@ export class Pod {
   toggle() {
     const a = this.g.audio;
     switch (this.state) {
-      case 'front': this.state = 'launch'; this.vx = 6.5; a.play('podLaunch'); break;
-      case 'back': this.state = 'launch'; this.vx = -5.5; a.play('podLaunch'); break;
+      case 'front': this.state = 'launch'; this.vx = POD_LAUNCH_FRONT; a.play('podLaunch'); break;
+      case 'back': this.state = 'launch'; this.vx = -POD_LAUNCH_BACK; a.play('podLaunch'); break;
       case 'free':
       case 'launch': this.state = 'recall'; break;
       case 'recall': this.state = 'free'; break;
