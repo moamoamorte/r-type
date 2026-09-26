@@ -1,4 +1,4 @@
-# Xiphos
+# X-76
 
 A browser-based horizontal shooter in the style of the classic late-80s arcade games.
 It runs entirely in the browser: plain ES modules, Canvas 2D, and Web Audio. There are no dependencies, no build step, and no asset files.
@@ -11,7 +11,7 @@ Stage 1, "The Hollow Station", is complete: open space, then a station interior,
 - [CLAUDE.md](CLAUDE.md) — orientation, constraints and conventions (start here)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the game, renderer and level are built
 - [docs/DECISIONS.md](docs/DECISIONS.md) — why things are the way they are
-- [GitHub Issues](https://github.com/moamoamorte/r-type/issues) — backlog and open questions; the [roadmap](https://github.com/moamoamorte/r-type/issues/28) gives the suggested order
+- [GitHub Issues](https://github.com/moamoamorte/x-76/issues) — backlog and open questions; the [roadmap](https://github.com/moamoamorte/x-76/issues/28) gives the suggested order
 
 ## Running
 

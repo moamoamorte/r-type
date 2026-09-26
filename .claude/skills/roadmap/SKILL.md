@@ -1,11 +1,11 @@
 ---
 name: roadmap
-description: Work the Xiphos roadmap. Checks the roadmap issue against GitHub, picks the next open item (or the one named), implements and verifies it in the browser, opens a PR, files issues for follow-up work found along the way, and updates the roadmap. Use when asked to "do the next roadmap item", "pick something off the roadmap", "update the roadmap", or /roadmap [issue number].
+description: Work the X-76 roadmap. Checks the roadmap issue against GitHub, picks the next open item (or the one named), implements and verifies it in the browser, opens a PR, files issues for follow-up work found along the way, and updates the roadmap. Use when asked to "do the next roadmap item", "pick something off the roadmap", "update the roadmap", or /roadmap [issue number].
 ---
 
 # Roadmap
 
-The backlog lives in GitHub Issues on `moamoamorte/r-type`. One issue, labelled `roadmap` (currently [#28](https://github.com/moamoamorte/r-type/issues/28)), is the index: a "Suggested order" checklist of issue links grouped into numbered sections, plus "Done so far" and "Decisions" sections. Every other issue holds its own detail: problem, recommended fix, acceptance criteria.
+The backlog lives in GitHub Issues on `moamoamorte/x-76`. One issue, labelled `roadmap` (currently [#28](https://github.com/moamoamorte/x-76/issues/28)), is the index: a "Suggested order" checklist of issue links grouped into numbered sections, plus "Done so far" and "Decisions" sections. Every other issue holds its own detail: problem, recommended fix, acceptance criteria.
 
 A run takes four steps: **assess → pick → deliver → update the roadmap**. If the user passed an issue number, skip the pick step and work on that issue.
 

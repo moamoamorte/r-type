@@ -14,10 +14,18 @@ import { Render3D } from './render3d.js';
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 
-const HI_KEY = 'xiphos-hi';
-const OLD_HI_KEY = 'nebula-lance-hi';   // carry over scores from the old name
+const HI_KEY = 'x76-hi';
+const LEGACY_HI_KEYS = ['xiphos-hi', 'nebula-lance-hi'];   // carry over scores from earlier names
 function loadHi() {
-  try { return +localStorage.getItem(HI_KEY) || +localStorage.getItem(OLD_HI_KEY) || 20000; } catch { return 20000; }
+  try {
+    const v = +localStorage.getItem(HI_KEY);
+    if (v) return v;
+    for (const key of LEGACY_HI_KEYS) {
+      const legacy = +localStorage.getItem(key);
+      if (legacy) return legacy;
+    }
+    return 20000;
+  } catch { return 20000; }
 }
 function saveHi(v) {
   try { localStorage.setItem(HI_KEY, String(v)); } catch { /* storage unavailable */ }
@@ -593,7 +601,7 @@ class Game {
     this.bg.draw(ctx, this.stateT * 0.5, this.t);
     ctx.fillStyle = 'rgba(0,0,10,0.35)';
     ctx.fillRect(0, 0, W, H);
-    drawText(ctx, 'XIPHOS', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
+    drawText(ctx, 'X-76', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
     drawText(ctx, `STAGE ${STAGES[0].id} - ${STAGES[0].name}`, W / 2, 60, '#ffd070', { align: 'center' });
 
     if (this.r3d) {
