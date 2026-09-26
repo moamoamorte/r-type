@@ -31,6 +31,7 @@ export class Input {
   constructor() {
     this.keys = new Set();     // codes currently held
     this.tapped = new Set();   // actions pressed since last poll (so quick taps aren't lost)
+    this.touchHeld = new Set(); // actions currently held via touch controls, by action name
     this.down = {};
     this.prev = {};
     this.onFirstInput = null;
@@ -53,10 +54,21 @@ export class Input {
     addEventListener('pointerdown', () => this.onFirstInput?.());
   }
 
+  // Touch controls press/release actions directly (no key code to translate).
+  touchPress(action) {
+    if (!this.touchHeld.has(action)) this.tapped.add(action);
+    this.touchHeld.add(action);
+    this.onFirstInput?.();
+  }
+  touchRelease(action) {
+    this.touchHeld.delete(action);
+  }
+
   poll() {
     this.prev = this.down;
     const d = {};
     for (const c of this.keys) d[KEYMAP[c]] = true;
+    for (const a of this.touchHeld) d[a] = true;
     for (const a of this.tapped) d[a] = true;
     this.tapped.clear();
 
