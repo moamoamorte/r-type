@@ -101,13 +101,9 @@ export class Render3D {
         this.podState = pod.state;
         this.podDocked = docked;
       }
-      // Docked, the pod sits back over the hull so it engulfs the nose (or tail)
-      // rather than floating in front of it.
-      let px = pod.x - cam, py = -pod.y;
-      if (pod.state === 'front') { px -= 7; py -= 2.5; this.pod.setGrip(-1); }
-      else if (pod.state === 'back') { px += 5; this.pod.setGrip(1); }
-      else this.pod.setGrip(1);
-      this.pod.group.position.set(px, py, 4);
+      // Claws reach back toward the hull when docked on the nose.
+      this.pod.setGrip(pod.state === 'front' ? -1 : 1);
+      this.pod.group.position.set(pod.x - cam, -pod.y, 4);
       if (this.podColor !== pod.color) {
         this.podColor = pod.color;
         this.pod.setColor(pod.color);

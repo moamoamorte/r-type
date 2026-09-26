@@ -66,13 +66,13 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Open problem:** the result is mixed sharpness — crisp 3D ship against chunky pixel-art terrain. Two coherent endpoints exist (render 3D at 1x for a true retro look, or raise the whole game's resolution and redo the 2D art). Resolved by §15.
 
-## 10. Visual-only docking offset for the pod
+## 10. The docked pod engulfs the nose, and its hitbox follows
 
-**Decision:** when docked, the pod is drawn ~7px back from its gameplay position so it engulfs the nose.
+**Decision:** when docked, the pod sits back over the hull so it swallows the nose tip (or caps the tail), and its gameplay position is that drawn position. The offsets live in `DOCK` in `player.js`; the preview harness imports them.
 
-**Why:** the pod read as floating in front of the ship. Gameplay positions were left alone to avoid changing the shield's hitbox mid-stream.
+**Why:** the pod read as floating in front of the ship. The first fix only moved the drawing ~7px back and left gameplay alone, so the pod blocked bullets ahead of where it appeared. That offset was folded into gameplay in [#10](https://github.com/moamoamorte/r-type/issues/10).
 
-**Cost:** the pod blocks bullets ~7px ahead of where it appears. Known gap, tracked in [#10](https://github.com/moamoamorte/r-type/issues/10).
+**Consequence:** the docked shield sits ~7px closer to the ship than it originally did, and in the 2D fallback the pod now overlaps the sprite's nose and tail.
 
 ## 11. Checkpoints wipe power-ups
 
