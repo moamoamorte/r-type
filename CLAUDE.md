@@ -36,7 +36,8 @@ There is no automated test suite. Verify in the browser:
 
 - `window.game` (game page) and `window.__preview` (harness) are exposed for driving state from the console.
 - Typical loop: start a server, navigate, drive state via JS, screenshot, read console errors.
-- Useful: `game.killPlayer = () => {}` to stop dying while inspecting; jump the camera with `game.cam = <x>` plus `game.resetLists()`.
+- **Warp** straight into play from the URL: `?stage=N`, `?cp=K` (checkpoint index), `?cam=X`, `?boss=1` (just before the boss warning), `?god=1` (no deaths from enemies or terrain), `?power=pod:red:3,speed:2,missile,bits:2`. Any of them skips the title, e.g. `/index.html?cp=3&power=pod:blue:2` or `?boss=1&god=1`.
+- The same at runtime: `game.warp({ cp: 3, power: 'pod:blue:2', god: true })` starts a fresh game there. `game.god = true` on its own stops dying while inspecting.
 
 ## Style
 
