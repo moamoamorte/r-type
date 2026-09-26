@@ -14,7 +14,8 @@ src/            game + harness modules
 
 | File | Lines | Contents |
 | --- | --- | --- |
-| `src/main.js` | 589 | Game loop, state machine, spawning, collision, HUD, overlays |
+| `src/main.js` | 693 | Game loop, state machine, spawning, collision, HUD, overlays, debug warp |
+| `src/stages.js` | 9 | Stage registry: id, name, level module, boss class |
 | `src/player.js` | 612 | Player, pod, bits, every player projectile, 2D ship drawing |
 | `src/enemies.js` | 624 | Enemy base + 8 enemy types, enemy bullets |
 | `src/boss.js` | 406 | Stage 1 boss ("Oculus Bloom") |
@@ -38,7 +39,9 @@ src/            game + harness modules
 
 `main.js` runs a fixed 60 Hz accumulator: `update()` may run several times per animation frame, `draw()` once. A thrown error is caught, logged and the loop continues, so one bad frame cannot freeze the game.
 
-States: `title` → `play` → (`gameover` | `clear`) → `title`. Pause is a flag inside `play`. The tab losing visibility auto-pauses.
+States: `title` → `play` → (`gameover` | `clear`) → `title`. From `clear` the game moves on to the next entry in `STAGES` if there is one, carrying score, lives and power-ups. Pause is a flag inside `play`. The tab losing visibility auto-pauses.
+
+`stages.js` lists the stages. `main.js` reads everything stage-specific (terrain, spawns, checkpoints, scroll limits, boss class, names) through `game.stage`, so a new stage is one entry there plus its level and boss modules. Terrain is built when a stage is first entered and kept until the stage changes.
 
 ## Coordinates and scrolling
 
@@ -66,7 +69,7 @@ Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY
 
 ## Stage 1
 
-`level1.js` exports `buildTerrain()` and `buildSpawns()`.
+`level1.js` exports `buildTerrain()`, `buildSpawns()`, `CHECKPOINTS`, `WARNING_CAM`, `BOSS_CAM` and `SCROLL`; every level module has the same shape.
 
 - Terrain is built from ceiling/floor height profiles per column plus explicit rectangles for pillars, blocks and obstacles.
 - Spawns are a list sorted by camera position: `{x: camTrigger, type, ...opts}`. Terrain-mounted enemies carry `wx` (world x) and `static: true`, and are triggered a screen-width early.

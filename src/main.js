@@ -1,15 +1,14 @@
 // Game bootstrap, main loop, state machine, spawning and collision.
-import { W, H, HUD_H, SCREEN_H, rand, circleHit, rectCircleHit, angleTo, dist2 } from './util.js';
+import { W, H, HUD_H, SCREEN_H, rand, clamp, circleHit, rectCircleHit, angleTo, dist2 } from './util.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { drawText } from './font.js';
 import { FX } from './fx.js';
 import { Background } from './background.js';
-import { buildTerrain, buildSpawns, BOSS_CAM, SCROLL, CHECKPOINTS } from './level1.js';
+import { STAGES } from './stages.js';
 import { Player, Pod, Bit, drawShip } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
-import { Boss } from './boss.js';
-import { PowerItem } from './items.js';
+import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
 
 const canvas = document.getElementById('screen');
@@ -30,8 +29,7 @@ class Game {
     this.input = new Input();
     this.audio = new Sound();
     this.input.onFirstInput = () => this.audio.init();
-    this.terrain = buildTerrain();
-    this.spawns = buildSpawns();
+    this.setStage(0);
     this.bg = new Background();
     // ?flat=1 forces the original 2D sprites (handy for comparing the two).
     const flat2d = new URLSearchParams(location.search).has('flat');
@@ -45,6 +43,7 @@ class Game {
     this.cam = 0;
     this.scrollDelta = 0;
     this.paused = false;
+    this.god = false;
     this.resetLists();
 
     document.addEventListener('visibilitychange', () => {
@@ -64,20 +63,49 @@ class Game {
   }
 
   // ---- flow ---------------------------------------------------------------
-  newGame() {
+  // Terrain art is pre-rendered, so it is only rebuilt when the stage changes.
+  setStage(i) {
+    this.stageIdx = i;
+    this.stage = STAGES[i];
+    if (this.builtStage !== this.stage) {
+      this.terrain = this.stage.level.buildTerrain();
+      this.spawns = this.stage.level.buildSpawns();
+      this.builtStage = this.stage;
+    }
+  }
+
+  newGame(stageIdx = 0, cam) {
     this.score = 0;
     this.lives = 3;
     this.nextExtend = 50000;
+    this.state = 'play';
+    this.startStage(stageIdx, cam);
+  }
+
+  startStage(i, cam) {
+    this.setStage(i);
+    const start = this.stage.level.CHECKPOINTS[0];
     this.cpIndex = 0;
     this.bossDone = false;
+    this.startAt(cam ?? start, (cam ?? start) === start);
+  }
+
+  // Score and lives carry over; so do power-ups, as the genre usually does.
+  nextStage() {
+    const kit = this.loadout();
     this.state = 'play';
-    this.startFromCheckpoint(true);
+    this.startStage(this.stageIdx + 1);
+    this.applyLoadout(kit);
   }
 
   startFromCheckpoint(first = false) {
+    this.startAt(this.stage.level.CHECKPOINTS[this.cpIndex], first);
+  }
+
+  startAt(cam, first = false) {
     this.resetLists();
     this.fx = new FX();
-    this.cam = CHECKPOINTS[this.cpIndex];
+    this.cam = cam;
     this.scrollDelta = 0;
     this.deathT = 0;
     this.warning = 0;
@@ -87,9 +115,51 @@ class Game {
     // Terrain-mounted enemies that should already be on screen.
     for (const ev of this.spawns) if (ev.static && ev.x < this.cam && ev.wx > this.cam + 40) this.spawn(ev);
     this.banner = first
-      ? { text: 'STAGE 1', sub: 'THE HOLLOW STATION', t: 200 }
+      ? { text: 'STAGE ' + this.stage.id, sub: this.stage.name, t: 200 }
       : { text: 'READY', sub: '', t: 120 };
     this.audio.music('stage');
+  }
+
+  loadout() {
+    const p = this.player;
+    return {
+      pod: this.pod && { color: this.pod.color, level: this.pod.level },
+      speed: p.speedLv,
+      missile: p.missile,
+      bits: this.bits.length,
+    };
+  }
+
+  // Grants power-ups directly: no pickup, score or popup. The pod starts docked.
+  applyLoadout({ pod, speed = 0, missile = false, bits = 0 }) {
+    const p = this.player;
+    p.speedLv = clamp(speed, 0, 4);
+    p.missile = missile;
+    this.pod = null;
+    if (pod) {
+      this.pod = new Pod(this, pod.color);
+      this.pod.level = clamp(pod.level, 1, 3);
+      this.pod.state = 'front';
+    }
+    this.bits = [];
+    for (let i = 0; i < Math.min(2, bits); i++) this.bits.push(new Bit(this, i ? 1 : -1));
+  }
+
+  // Start play anywhere, e.g. game.warp({ cp: 3, power: 'pod:blue:2', god: true }).
+  // The URL takes the same options (?stage ?cp ?cam ?boss ?god ?power); see readWarp().
+  // Always a fresh game: score 0, three lives.
+  warp({ stage = 1, cp, cam, boss, god, power } = {}) {
+    let i = STAGES.findIndex((s) => s.id === +stage);
+    if (i < 0) { console.warn(`warp: no stage ${stage}`); i = 0; }
+    const L = STAGES[i].level;
+    let x = L.CHECKPOINTS[0];
+    if (boss) x = L.WARNING_CAM - 40;
+    else if (cam !== undefined) x = clamp(+cam, 0, L.BOSS_CAM);
+    else if (cp !== undefined) x = L.CHECKPOINTS[clamp(Math.floor(cp), 0, L.CHECKPOINTS.length - 1)];
+    if (god !== undefined) this.god = !!god;
+    this.setPaused(false);
+    this.newGame(i, x);
+    if (power) this.applyLoadout(typeof power === 'string' ? parsePower(power) : power);
   }
 
   setPaused(p) {
@@ -100,7 +170,7 @@ class Game {
 
   killPlayer() {
     const p = this.player;
-    if (p.dead) return;
+    if (p.dead || this.god) return;
     p.dead = true;
     this.deathT = 0;
     this.fx.explode(p.x, p.y, 2.5);
@@ -240,15 +310,19 @@ class Game {
         this.fx.update(0);
         if (this.state === 'clear' && !this.player.dead) this.player.x += 3;
         if (this.stateT > 120 && (inp.pressed('start') || inp.pressed('fire'))) {
-          this.state = 'title';
-          this.stateT = 0;
-          this.audio.music(null);
+          if (this.state === 'clear' && this.stageIdx + 1 < STAGES.length) this.nextStage();
+          else {
+            this.state = 'title';
+            this.stateT = 0;
+            this.audio.music(null);
+          }
         }
         break;
     }
   }
 
   updatePlay() {
+    const { BOSS_CAM, SCROLL, CHECKPOINTS } = this.stage.level;
     const prev = this.cam;
     this.cam = Math.min(BOSS_CAM, this.cam + SCROLL);
     this.scrollDelta = this.cam - prev;
@@ -256,7 +330,7 @@ class Game {
     while (this.spawnIdx < this.spawns.length && this.spawns[this.spawnIdx].x <= this.cam)
       this.spawn(this.spawns[this.spawnIdx++]);
     if (!this.boss && !this.bossDone && this.cam >= BOSS_CAM) {
-      this.boss = new Boss(this);
+      this.boss = new this.stage.Boss(this);
       this.enemies.push(this.boss);
       this.audio.music('boss');
     }
@@ -484,7 +558,7 @@ class Game {
     }
     if (this.boss && this.boss.state === 'fight') {
       const b = this.boss;
-      drawText(ctx, 'OCULUS BLOOM', 132, 4, '#ffb0c0');
+      drawText(ctx, this.stage.bossName, 132, 4, '#ffb0c0');
       ctx.fillStyle = '#300a14';
       ctx.fillRect(132, 13, 120, 4);
       ctx.fillStyle = '#ff3a5a';
@@ -506,10 +580,11 @@ class Game {
       const s = this.stateT;
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(0, 0, W, H);
-      drawText(ctx, 'STAGE 1 CLEAR', W / 2, 60, '#8affb0', { align: 'center', scale: 3, shadow: '#0a3a1a' });
+      drawText(ctx, `STAGE ${this.stage.id} CLEAR`, W / 2, 60, '#8affb0', { align: 'center', scale: 3, shadow: '#0a3a1a' });
       if (s > 40) drawText(ctx, 'CLEAR BONUS  ' + this.clearBonus, W / 2, 100, '#fff', { align: 'center' });
       if (s > 70) drawText(ctx, 'SCORE  ' + pad(this.score), W / 2, 114, '#ffd070', { align: 'center' });
-      if (s > 100) drawText(ctx, 'STAGE 2 IS STILL UNDER CONSTRUCTION', W / 2, 146, '#8ad8ff', { align: 'center' });
+      if (s > 100 && this.stageIdx + 1 >= STAGES.length)
+        drawText(ctx, `STAGE ${this.stage.id + 1} IS STILL UNDER CONSTRUCTION`, W / 2, 146, '#8ad8ff', { align: 'center' });
       if (s > 120 && this.t % 60 < 40) drawText(ctx, 'PRESS ENTER', W / 2, 176, '#fff', { align: 'center' });
     }
   }
@@ -519,7 +594,7 @@ class Game {
     ctx.fillStyle = 'rgba(0,0,10,0.35)';
     ctx.fillRect(0, 0, W, H);
     drawText(ctx, 'XIPHOS', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
-    drawText(ctx, 'STAGE 1 - THE HOLLOW STATION', W / 2, 60, '#ffd070', { align: 'center' });
+    drawText(ctx, `STAGE ${STAGES[0].id} - ${STAGES[0].name}`, W / 2, 60, '#ffd070', { align: 'center' });
 
     if (this.r3d) {
       this.r3d.renderTitle(this.t);
@@ -550,6 +625,33 @@ class Game {
   }
 }
 
+// ---- debug warp -------------------------------------------------------------
+// "pod:red:3,speed:2,missile,bits:2" -> a loadout for applyLoadout().
+function parsePower(str) {
+  const kit = {};
+  for (const tok of str.split(',')) {
+    const [k, a, b] = tok.trim().toLowerCase().split(':');
+    if (k === 'pod') kit.pod = { color: CRYSTAL_COLORS.includes(a) ? a : 'red', level: +b || 1 };
+    else if (k === 'speed') kit.speed = +a || 1;
+    else if (k === 'missile') kit.missile = true;
+    else if (k === 'bits' || k === 'bit') kit.bits = +a || 1;
+    else if (k) console.warn(`power: unknown power-up "${tok}"`);
+  }
+  return kit;
+}
+
+// Any warp param skips the title. Returns null when there are none.
+function readWarp() {
+  const q = new URLSearchParams(location.search);
+  if (!['stage', 'cp', 'cam', 'boss', 'god', 'power'].some((k) => q.has(k))) return null;
+  const num = (k) => (q.get(k) && Number.isFinite(+q.get(k)) ? +q.get(k) : undefined);
+  const flag = (k) => (q.has(k) ? q.get(k) !== '0' : undefined);
+  return {
+    stage: num('stage'), cp: num('cp'), cam: num('cam'),
+    boss: flag('boss'), god: flag('god'), power: q.get('power') || undefined,
+  };
+}
+
 // ---- boot -------------------------------------------------------------------
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen?.();
@@ -567,6 +669,8 @@ fit();
 
 const game = new Game();
 window.game = game; // handy for debugging from the console
+const warp = readWarp();
+if (warp) game.warp(warp);
 
 const STEP = 1000 / 60;
 let last = performance.now(), acc = 0;
