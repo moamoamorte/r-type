@@ -4,7 +4,10 @@ import * as THREE from '../vendor/three.module.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { Input } from './input.js';
-import { DOCK } from './player.js';
+import {
+  shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, DOCK, SHIP_SCALE,
+  POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
+} from './tuning.js';
 import { liveReload } from './livereload.js';
 
 liveReload();
@@ -81,11 +84,10 @@ const nosePointWorld = () => (scene.updateMatrixWorld(), models.ship.nose.localT
 const tailPointWorld = () => (scene.updateMatrixWorld(), models.ship.group.localToWorld(v.set(-22, 0, 0)).clone());
 
 // --- fly-it-yourself sandbox ------------------------------------------------
-// Uses the game's Input and the same per-frame constants, so the handling,
+// Uses the game's Input and its constants from tuning.js, so the handling,
 // charge timing and pod behaviour match the real thing.
 const input = new Input();
-const U = 1 / 0.78;            // game pixels -> preview world units (game scales the model by 0.78)
-const BEAM_POWER = [0, 4, 8, 14, 22, 34];
+const U = 1 / SHIP_SCALE;      // game pixels -> preview world units
 const play = {
   x: -20, y: 0, tilt: 0, turn: 0, charge: 0, holdT: 0, speedLv: 0,
   pod: { state: 'front', x: 0, y: 0, vx: 0, has: true },
@@ -128,7 +130,7 @@ function resetPlay() {
 // One fixed 60 Hz step, mirroring Player.update / Pod.update.
 function stepPlay() {
   input.poll();
-  const speed = (1.3 + play.speedLv * 0.35) * U;
+  const speed = shipSpeed(play.speedLv) * U;
   let dx = 0, dy = 0;
   if (input.held('left')) dx--;
   if (input.held('right')) dx++;
@@ -137,8 +139,8 @@ function stepPlay() {
   if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
   play.x = THREE.MathUtils.clamp(play.x + dx * speed, -BOUND_X, BOUND_X);
   play.y = THREE.MathUtils.clamp(play.y - dy * speed, -BOUND_Y, BOUND_Y);   // screen y is inverted in world space
-  play.tilt = THREE.MathUtils.lerp(play.tilt, dy, 0.25);
-  play.turn = THREE.MathUtils.lerp(play.turn, dx, 0.2);
+  play.tilt = THREE.MathUtils.lerp(play.tilt, dy, TILT_EASE);
+  play.turn = THREE.MathUtils.lerp(play.turn, dx, TURN_EASE);
 
   if (input.pressed('fire')) {
     models.ship.fire(1);
@@ -150,10 +152,10 @@ function stepPlay() {
   }
   if (input.held('fire')) {
     play.holdT++;
-    if (play.holdT > 10) play.charge = Math.min(1, play.charge + 1 / 80);
+    if (play.holdT > CHARGE_DELAY) play.charge = Math.min(1, play.charge + CHARGE_RATE);
   } else {
-    if (play.charge >= 0.2) {
-      const L = THREE.MathUtils.clamp(Math.ceil(play.charge * 5), 1, 5);
+    if (play.charge >= BEAM_MIN_CHARGE) {
+      const L = beamLevel(play.charge);
       models.ship.fire(1 + L * 0.4);
       const p = muzzleWorld();
       p.x += 10 + L * 3;
@@ -170,8 +172,8 @@ function togglePod() {
   const p = play.pod;
   if (!p.has) return;
   switch (p.state) {
-    case 'front': p.state = 'launch'; p.vx = 6.5 * U; break;
-    case 'back': p.state = 'launch'; p.vx = -5.5 * U; break;
+    case 'front': p.state = 'launch'; p.vx = POD_LAUNCH_FRONT * U; break;
+    case 'back': p.state = 'launch'; p.vx = -POD_LAUNCH_BACK * U; break;
     case 'free':
     case 'launch': p.state = 'recall'; break;
     case 'recall': p.state = 'free'; break;
@@ -186,17 +188,17 @@ function stepPod() {
     case 'front': p.x = play.x + DOCK.front.x * U; p.y = play.y - DOCK.front.y * U; break;
     case 'back': p.x = play.x + DOCK.back.x * U; p.y = play.y - DOCK.back.y * U; break;
     case 'free':
-      p.y = THREE.MathUtils.lerp(p.y, play.y, 0.035);
+      p.y = THREE.MathUtils.lerp(p.y, play.y, POD_FOLLOW);
       break;
     case 'launch':
       p.x += p.vx;
-      p.vx *= 0.94;
-      if (Math.abs(p.vx) < 0.7 * U || p.x > 95 || p.x < -95) p.state = 'free';
+      p.vx *= POD_LAUNCH_DRAG;
+      if (Math.abs(p.vx) < POD_LAUNCH_STOP * U || p.x > 95 || p.x < -95) p.state = 'free';
       break;
     case 'recall': {
       const dx = play.x - p.x, dy = play.y - p.y;
       const d = Math.hypot(dx, dy) || 1;
-      const s = Math.min(d, 5.5 * U);
+      const s = Math.min(d, POD_RECALL_SPEED * U);
       p.x += (dx / d) * s;
       p.y += (dy / d) * s;
       break;
@@ -205,7 +207,7 @@ function stepPod() {
   if (p.state !== 'front' && p.state !== 'back') {
     p.x = THREE.MathUtils.clamp(p.x, -95, 95);
     p.y = THREE.MathUtils.clamp(p.y, -46, 46);
-    if (p.state !== 'launch' && Math.hypot(play.x - p.x, play.y - p.y) < 18 * U) {
+    if (p.state !== 'launch' && Math.hypot(play.x - p.x, play.y - p.y) < POD_GRAB_DIST * U) {
       p.state = p.x > play.x ? 'front' : 'back';
       models.pod.clamp();
     }

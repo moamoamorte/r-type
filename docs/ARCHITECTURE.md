@@ -15,7 +15,8 @@ src/            game + harness modules
 | File | Lines | Contents |
 | --- | --- | --- |
 | `src/main.js` | 589 | Game loop, state machine, spawning, collision, HUD, overlays |
-| `src/player.js` | 612 | Player, pod, bits, every player projectile, 2D ship drawing |
+| `src/player.js` | 610 | Player, pod, bits, every player projectile, 2D ship drawing |
+| `src/tuning.js` | 47 | Handling constants shared by the game and the preview sandbox |
 | `src/enemies.js` | 624 | Enemy base + 8 enemy types, enemy bullets |
 | `src/boss.js` | 406 | Stage 1 boss ("Oculus Bloom") |
 | `src/level1.js` | 184 | Stage 1 terrain shape and spawn script |
@@ -27,7 +28,7 @@ src/            game + harness modules
 | `src/font.js` | 69 | 5x7 bitmap font with a render cache |
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
-| `src/render3d.js` | 120 | 3D layer: draws ship + pod over the 2D playfield |
+| `src/render3d.js` | 117 | 3D layer: draws ship + pod over the 2D playfield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
 | `src/models/materials.js` | 73 | Toon ramp, ink-outline shader, shared palette |
@@ -83,7 +84,7 @@ The 2D canvas draws background, terrain, enemies, items, projectiles, effects an
 
 - Orthographic camera mapping **game pixels 1:1** to world units: `(0, W, 0, -H)`. An entity at screen (x, y) is placed at world (x, −y).
 - Internal resolution is **3x** the logical size (1152×672), so the 3D models are far sharper than the 2D pixel art. This mismatch is being resolved by rendering both layers at display resolution — see DECISIONS §15 and [#4](https://github.com/moamoamorte/r-type/issues/4).
-- The ship model is scaled 0.78 and the pod 0.72, which is what makes them the right size on a 384px-wide field.
+- The ship model is scaled 0.78 and the pod 0.72 (`SHIP_SCALE`, `POD_SCALE` in `tuning.js`), which is what makes them the right size on a 384px-wide field.
 - `Render3D.create()` returns `null` when WebGL is unavailable, and the game falls back to the original 2D sprites. `?flat=1` forces that path.
 - The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.
 - `renderTitle(t)` poses the ship larger and turning for the title screen; `render()` resets scale and pose.
@@ -107,7 +108,7 @@ Everything is synthesised at runtime (`audio.js`): oscillators and filtered nois
 
 `preview.html` + `preview.js`, independent of the game. Controls sit along the bottom.
 
-- **Fly it** — a sandbox using the game's own `Input` class and the same per-frame constants (speed, banking, charge timing, beam levels, pod state machine), so handling matches the game. Conversion: preview world units = game pixels ÷ 0.78.
+- **Fly it** — a sandbox using the game's own `Input` class and the game's per-frame constants imported from `tuning.js` (speed, banking, charge timing, beam levels, pod state machine), so handling matches the game. Conversion: preview world units = game pixels ÷ 0.78.
 - **Sequences** — firing, charged beam, pod fly-in, pod docking front/rear. Each loops and can be replayed.
 - Orbit/zoom, preset camera angles, outline/wireframe/grid toggles, light angle, backgrounds, PNG export.
 - The active sequence is remembered in `sessionStorage` so a live reload drops you back in place.
