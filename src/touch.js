@@ -11,6 +11,14 @@ const STICK_RADIUS = 44;     // px, the knob's max travel from the stick centre
 const DEAD_ZONE = 0.12;      // fraction of STICK_RADIUS before any direction fires
 const DIR_THRESHOLD = 0.35;  // fraction of the drag's own magnitude needed per axis
 
+// Exported so both the keyboard 'F' binding (main.js) and the touch FS
+// button (below) can call it. requestFullscreen() can be missing entirely
+// (e.g. older iOS Safari), so guard every step with optional chaining.
+export function toggleFullscreen() {
+  if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
+  document.documentElement.requestFullscreen?.()?.catch((err) => console.warn('fullscreen request failed:', err));
+}
+
 export class TouchControls {
   constructor(game) {
     this.game = game;
@@ -80,9 +88,31 @@ export class TouchControls {
     this.bindAction(this.root.querySelector('#touchPod'), 'pod');
     this.bindAction(this.root.querySelector('#touchPause'), 'pause');
     this.bindAction(this.root.querySelector('#touchMute'), 'mute');
-    this.bindAction(this.root.querySelector('#touchFull'), 'fullscreen');
     // A tap anywhere on the title/game-over/clear screen acts as start.
     this.bindAction(this.startZone, 'start');
+    this.wireFullscreenButton();
+  }
+
+  // Fullscreen can't go through bindAction()/Input like the other buttons:
+  // requestFullscreen() must run synchronously inside the gesture's own
+  // event handler, or Safari silently ignores it. Routing it through the
+  // polled Input action (press this frame, read on next game.update()) put
+  // a requestAnimationFrame tick between the tap and the call, which is
+  // exactly what broke it - see #50.
+  wireFullscreenButton() {
+    const el = this.root.querySelector('#touchFull');
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('on');
+    });
+    const end = (e) => {
+      e.preventDefault();
+      el.classList.remove('on');
+      toggleFullscreen();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', () => el.classList.remove('on'));
   }
 
   // The standard fix for "double-tap zooms the page" on iOS Safari: touch-
