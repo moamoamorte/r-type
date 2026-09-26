@@ -99,20 +99,36 @@ export class TouchControls {
   // polled Input action (press this frame, read on next game.update()) put
   // a requestAnimationFrame tick between the tap and the call, which is
   // exactly what broke it - see #50.
+  //
+  // It also has to be a *touch* event, not a pointer one: WebKit doesn't
+  // count PointerEvents towards "user activation" for gated APIs like
+  // requestFullscreen(), only touchend/click/keydown do. pointerdown/up are
+  // still used for the button's visual press state (that doesn't need a
+  // real gesture), but the actual toggleFullscreen() call is wired to
+  // touchend, or Safari silently no-ops it exactly as it did before #50 and
+  // #52's fixes - neither of those touched the event type, which is why the
+  // button kept failing on-device after both landed.
   wireFullscreenButton() {
     const el = this.root.querySelector('#touchFull');
+    // iPhone Safari had no Fullscreen API at all before iOS 16.4 - no event
+    // wiring fixes that. Rather than leave a button that silently does
+    // nothing on tap (indistinguishable from this bug), remove it so the
+    // controls are honest about what's actually available.
+    if (typeof document.documentElement.requestFullscreen !== 'function') {
+      el.remove();
+      return;
+    }
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       el.classList.add('on');
     });
-    const end = (e) => {
-      e.preventDefault();
-      el.classList.remove('on');
-      toggleFullscreen();
-    };
-    el.addEventListener('pointerup', end);
+    el.addEventListener('pointerup', (e) => { e.preventDefault(); el.classList.remove('on'); });
     el.addEventListener('pointercancel', () => el.classList.remove('on'));
+    el.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      toggleFullscreen();
+    });
   }
 
   // The standard fix for "double-tap zooms the page" on iOS Safari: touch-
