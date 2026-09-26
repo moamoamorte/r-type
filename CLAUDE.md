@@ -12,6 +12,8 @@ python3 serve.py          # http://localhost:8765
 
 ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` also disables caching and powers live reload.
 
+**Live build:** https://moamoamorte.github.io/x-76/ — GitHub Pages, redeployed by `.github/workflows/pages.yml` a couple of minutes after every merge to `main`. No manual deploy step; that's what makes it useful for trying changes on a phone.
+
 - Game: `/index.html` (add `?flat=1` to force the old 2D ship and bypass WebGL)
 - Model harness: `/preview.html` — fly the ship, play animations, inspect models
 

@@ -6,6 +6,8 @@ All graphics, music, and sound effects are generated in code, and every characte
 
 Stage 1, "The Hollow Station", is complete: open space, then a station interior, then a boss chamber.
 
+**Play it live:** https://moamoamorte.github.io/x-76/ — GitHub Pages, auto-deployed from `main` by `.github/workflows/pages.yml` a couple of minutes after every merge.
+
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) — orientation, constraints and conventions (start here)
