@@ -666,7 +666,7 @@ function readWarp() {
 // ---- boot -------------------------------------------------------------------
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen?.();
-  else document.documentElement.requestFullscreen?.().catch(() => {});
+  else document.documentElement.requestFullscreen?.().catch((err) => console.warn('fullscreen request failed:', err));
 }
 
 function fit() {
@@ -676,6 +676,8 @@ function fit() {
   canvas.style.height = `${SCREEN_H * k}px`;
 }
 addEventListener('resize', fit);
+// Not every browser fires 'resize' on fullscreen enter/exit.
+addEventListener('fullscreenchange', fit);
 fit();
 
 const game = new Game();

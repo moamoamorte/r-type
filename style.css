@@ -17,11 +17,13 @@ canvas {
   image-rendering: crisp-edges;
   background: #000;
   box-shadow: 0 0 40px rgba(60, 120, 255, 0.15);
+  touch-action: none;
 }
 
 #wrap {
   position: relative;
   line-height: 0;
+  touch-action: none;
 }
 #wrap #screen { position: relative; display: block; }
 #wrap #screen3d { position: absolute; left: 0; top: 0; }
@@ -125,6 +127,7 @@ canvas {
 }
 #touchPod { right: 32%; bottom: 26%; width: 54px; height: 54px; }
 #touchPause { right: 3%; top: 3%; width: 40px; height: 40px; }
+#touchFull { right: calc(3% + 48px); top: 3%; width: 40px; height: 40px; }
 
 #touchPauseMenu {
   position: absolute;

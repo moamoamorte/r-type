@@ -22,6 +22,7 @@ export class TouchControls {
     this.buildDom();
     this.wireStick();
     this.wireButtons();
+    this.wireDoubleTapGuard();
     this.wireVisibility();
   }
 
@@ -36,10 +37,10 @@ export class TouchControls {
       <button id="touchFire" class="touchBtn touchBtnBig" aria-label="Fire">
         <div id="touchFireRing"></div>FIRE
       </button>
+      <button id="touchFull" class="touchBtn touchBtnSmall" aria-label="Fullscreen">FS</button>
       <button id="touchPause" class="touchBtn touchBtnSmall" aria-label="Pause">II</button>
       <div id="touchPauseMenu">
         <button id="touchMute" class="touchBtn touchBtnFlat">MUTE</button>
-        <button id="touchFull" class="touchBtn touchBtnFlat">FULL</button>
       </div>
       <div id="touchStart" class="touchZone"></div>
     `;
@@ -55,6 +56,9 @@ export class TouchControls {
 
   // Binds a button/zone to press-and-release an Input action across pointer
   // lifetime, tracking the pointerId so a finger sliding off still releases.
+  // preventDefault() on every stage (not just pointerdown) is belt-and-
+  // suspenders against iOS Safari still treating fast repeated taps as a
+  // double-tap-zoom gesture; see #47.
   bindAction(el, action) {
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -63,6 +67,7 @@ export class TouchControls {
       this.input.touchPress(action);
     });
     const end = (e) => {
+      e.preventDefault();
       el.classList.remove('on');
       this.input.touchRelease(action);
     };
@@ -78,6 +83,19 @@ export class TouchControls {
     this.bindAction(this.root.querySelector('#touchFull'), 'fullscreen');
     // A tap anywhere on the title/game-over/clear screen acts as start.
     this.bindAction(this.startZone, 'start');
+  }
+
+  // The standard fix for "double-tap zooms the page" on iOS Safari: touch-
+  // action and per-element preventDefault aren't always enough for two fast
+  // taps on the same button (e.g. rapid-firing), so also veto any touchend
+  // that follows another one within a normal double-tap window. See #47.
+  wireDoubleTapGuard() {
+    let lastEnd = 0;
+    this.root.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastEnd < 350) e.preventDefault();
+      lastEnd = now;
+    }, { passive: false });
   }
 
   wireStick() {
@@ -128,6 +146,7 @@ export class TouchControls {
 
     const end = (e) => {
       if (e.pointerId !== this.stickPointer) return;
+      e.preventDefault();
       this.stickPointer = null;
       this.stickEl.classList.remove('on');
       this.knobEl.style.transform = '';
