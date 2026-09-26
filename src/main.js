@@ -10,7 +10,7 @@ import { Player, Pod, Bit, drawShip } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
 import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
-import { TouchControls } from './touch.js';
+import { TouchControls, toggleFullscreen } from './touch.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -664,11 +664,6 @@ function readWarp() {
 }
 
 // ---- boot -------------------------------------------------------------------
-function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen?.();
-  else document.documentElement.requestFullscreen?.().catch((err) => console.warn('fullscreen request failed:', err));
-}
-
 function fit() {
   const s = Math.min(innerWidth / W, innerHeight / SCREEN_H);
   const k = s >= 2 ? Math.floor(s) : s;
