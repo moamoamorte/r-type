@@ -1,8 +1,8 @@
-# Xiphos — working notes for Claude
+# X-76 — working notes for Claude
 
 A browser side-scrolling shooter in the style of late-80s arcade games. Stage 1 is complete and playable; the player ship and pod are 3D, everything else is still 2D.
 
-**Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing rendering or level code, and [docs/DECISIONS.md](docs/DECISIONS.md) before revisiting a choice that looks odd.** Open work lives in [GitHub Issues](https://github.com/moamoamorte/r-type/issues); the [roadmap issue](https://github.com/moamoamorte/r-type/issues/28) lists it in order. The `/roadmap` skill (`.claude/skills/roadmap/`) picks the next item, delivers it as a PR and keeps the roadmap in step.
+**Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing rendering or level code, and [docs/DECISIONS.md](docs/DECISIONS.md) before revisiting a choice that looks odd.** Open work lives in [GitHub Issues](https://github.com/moamoamorte/x-76/issues); the [roadmap issue](https://github.com/moamoamorte/x-76/issues/28) lists it in order. The `/roadmap` skill (`.claude/skills/roadmap/`) picks the next item, delivers it as a PR and keeps the roadmap in step.
 
 ## Run it
 

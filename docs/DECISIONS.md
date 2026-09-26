@@ -8,7 +8,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** R-Type's sprites, characters, music and level art belong to Irem. Mechanics are not protected in the same way. This held even when asked for an exact copy "for personal use only" — private use does not change ownership. Reference images supplied during design (R-9A hangar art, Archangel, Gundam-style mecha) were used for *style* cues only: panel density, cel shading, colour blocking, three-quarter framing.
 
-**Consequence:** the game is called Xiphos, the boss is "Oculus Bloom", and the ship is an original X-form design. Requests that amount to "make it look exactly like X" get an original interpretation plus a note about what was deliberately not copied.
+**Consequence:** the game is called X-76, the boss is "Oculus Bloom", and the ship is an original X-form design. Requests that amount to "make it look exactly like X" get an original interpretation plus a note about what was deliberately not copied.
 
 ## 2. No build step, no dependencies
 
@@ -70,7 +70,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Decision:** when docked, the pod sits back over the hull so it swallows the nose tip (or caps the tail), and its gameplay position is that drawn position. The offsets live in `DOCK` in `player.js`; the preview harness imports them.
 
-**Why:** the pod read as floating in front of the ship. The first fix only moved the drawing ~7px back and left gameplay alone, so the pod blocked bullets ahead of where it appeared. That offset was folded into gameplay in [#10](https://github.com/moamoamorte/r-type/issues/10).
+**Why:** the pod read as floating in front of the ship. The first fix only moved the drawing ~7px back and left gameplay alone, so the pod blocked bullets ahead of where it appeared. That offset was folded into gameplay in [#10](https://github.com/moamoamorte/x-76/issues/10).
 
 **Consequence:** the docked shield sits ~7px closer to the ship than it originally did, and in the 2D fallback the pod now overlaps the sprite's nose and tail.
 
@@ -106,10 +106,16 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** owner's choice between the two endpoints in §9. Keeping the logical coordinates fixed makes this a rendering-only change, consistent with §5.
 
-**Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Tracked in [#4](https://github.com/moamoamorte/r-type/issues/4).
+**Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Tracked in [#4](https://github.com/moamoamorte/x-76/issues/4).
 
 ## 16. No visible gun barrels on the ship
 
 **Decision:** the ship stays clean; shots continue to appear from the nose.
 
 **Why:** owner's call when the backlog was migrated to GitHub Issues.
+
+## 17. Renamed to X-76
+
+**Decision:** the game was renamed from Xiphos; the GitHub repo followed, from `r-type` to `x-76`. High scores saved under `xiphos-hi` or the older `nebula-lance-hi` are migrated on load.
+
+**Why:** owner's choice, tracked in [#24](https://github.com/moamoamorte/x-76/issues/24). `r-type` as a repo name named the game this project is inspired by rather than the project itself (see §1); `x-76` doesn't have that problem.

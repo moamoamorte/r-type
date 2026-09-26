@@ -1,6 +1,6 @@
 # Architecture
 
-How Xiphos is put together, and the invariants worth knowing before changing anything.
+How X-76 is put together, and the invariants worth knowing before changing anything.
 
 ## Shape of the thing
 
@@ -86,7 +86,7 @@ The 2D canvas draws background, terrain, enemies, items, projectiles, effects an
 `render3d.js`:
 
 - Orthographic camera mapping **game pixels 1:1** to world units: `(0, W, 0, -H)`. An entity at screen (x, y) is placed at world (x, −y).
-- Internal resolution is **3x** the logical size (1152×672), so the 3D models are far sharper than the 2D pixel art. This mismatch is being resolved by rendering both layers at display resolution — see DECISIONS §15 and [#4](https://github.com/moamoamorte/r-type/issues/4).
+- Internal resolution is **3x** the logical size (1152×672), so the 3D models are far sharper than the 2D pixel art. This mismatch is being resolved by rendering both layers at display resolution — see DECISIONS §15 and [#4](https://github.com/moamoamorte/x-76/issues/4).
 - The ship model is scaled 0.78 and the pod 0.72 (`SHIP_SCALE`, `POD_SCALE` in `tuning.js`), which is what makes them the right size on a 384px-wide field.
 - `Render3D.create()` returns `null` when WebGL is unavailable, and the game falls back to the original 2D sprites. `?flat=1` forces that path.
 - The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. The ship model uses only dip's magnitude, so the nose drops whichever way the ship slides. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.
