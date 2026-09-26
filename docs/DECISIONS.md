@@ -64,7 +64,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** the detail in the models is invisible at 1x — this was demonstrated with side-by-side thumbnails during design.
 
-**Open problem:** the result is mixed sharpness — crisp 3D ship against chunky pixel-art terrain. Two coherent endpoints exist (render 3D at 1x for a true retro look, or raise the whole game's resolution and redo the 2D art). Not yet chosen. See TODO.
+**Open problem:** the result is mixed sharpness — crisp 3D ship against chunky pixel-art terrain. Two coherent endpoints exist (render 3D at 1x for a true retro look, or raise the whole game's resolution and redo the 2D art). Resolved by §15.
 
 ## 10. Visual-only docking offset for the pod
 
@@ -72,7 +72,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** the pod read as floating in front of the ship. Gameplay positions were left alone to avoid changing the shield's hitbox mid-stream.
 
-**Cost:** the pod blocks bullets ~7px ahead of where it appears. Known gap, listed in the TODO.
+**Cost:** the pod blocks bullets ~7px ahead of where it appears. Known gap, tracked in [#10](https://github.com/moamoamorte/r-type/issues/10).
 
 ## 11. Checkpoints wipe power-ups
 
@@ -99,3 +99,17 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Decision:** the game was renamed from Nebula Lance; high scores saved under the old key are migrated on load.
 
 **Why:** requested a name with an "x"; a xiphos is a short sword, which suits the blade-like hull and the X-form arms.
+
+## 15. Art target: modern high-res, gameplay stays 384×224
+
+**Decision:** resolve the mixed sharpness from §9 by going high-res rather than retro. Both the 2D canvas and the 3D layer render at the device's real size × `devicePixelRatio`; the 2D art is redrawn to suit. Gameplay keeps its 384×224 logical field, so coordinates, tuning constants and level data do not change.
+
+**Why:** owner's choice between the two endpoints in §9. Keeping the logical coordinates fixed makes this a rendering-only change, consistent with §5.
+
+**Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Tracked in [#4](https://github.com/moamoamorte/r-type/issues/4).
+
+## 16. No visible gun barrels on the ship
+
+**Decision:** the ship stays clean; shots continue to appear from the nose.
+
+**Why:** owner's call when the backlog was migrated to GitHub Issues.
