@@ -86,7 +86,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** iterating on models through the game is slow and needs a level running. The harness made every ship revision a few seconds' work.
 
-**Consequence:** the sandbox duplicates a handful of gameplay constants. They must be kept in step with `player.js` and `pod` behaviour — if handling ever feels different between the two, that duplication is the first suspect.
+**Consequence:** the sandbox re-implements the player and pod update logic, but takes every tuning number from `src/tuning.js`, which the game uses too. Changing a value there changes both. Changing the *logic* in `player.js` (a new state, a different formula) still has to be mirrored in `stepPlay` / `stepPod` by hand — if handling ever feels different between the two, that is the first suspect.
 
 ## 13. Live reload via polling
 

@@ -156,11 +156,12 @@ export function createShip({ outline = OUT } = {}) {
       }
       recoil = Math.max(0, recoil - dt * 7);
       bank.position.x = -recoil;
-      // bank: +1 when climbing. dip: +1 when sliding forward, which drops the nose.
+      // bank: +1 when climbing. dip: horizontal movement; only its magnitude
+      // counts, so the nose drops whichever way the ship slides.
       const b = state.bank || 0;
       const d = state.dip || 0;
       bank.rotation.x = THREE.MathUtils.lerp(bank.rotation.x, -b * 0.55, 0.25);
-      bank.rotation.z = THREE.MathUtils.lerp(bank.rotation.z, -d * 0.2, 0.2);
+      bank.rotation.z = THREE.MathUtils.lerp(bank.rotation.z, -Math.abs(d) * 0.2, 0.2);
       bank.position.y = Math.sin(t * 2.2) * 0.2;
       const thr = state.throttle ?? 1;
       for (const f of flames) {

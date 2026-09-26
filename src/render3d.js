@@ -4,6 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { W, H } from './util.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
+import { SHIP_SCALE, POD_SCALE } from './tuning.js';
 
 export class Render3D {
   // Returns null when WebGL isn't available, so the game can fall back to 2D.
@@ -36,8 +37,8 @@ export class Render3D {
 
     this.ship = createShip();
     this.pod = createPod();
-    this.ship.group.scale.setScalar(0.78);
-    this.pod.group.scale.setScalar(0.72);
+    this.ship.group.scale.setScalar(SHIP_SCALE);
+    this.pod.group.scale.setScalar(POD_SCALE);
     this.scene.add(this.ship.group, this.pod.group);
     this.hideAll();
   }
@@ -65,10 +66,10 @@ export class Render3D {
     s.visible = true;
     s.scale.setScalar(2.0);
     s.position.set(W / 2, -97 + Math.sin(t * 0.03) * 3, 0);
-    s.rotation.set(0.2 + Math.sin(t * 0.011) * 0.06, -0.3 + Math.sin(t * 0.008) * 0.22, 0);
+    // The nose sway lives on the pose, not in dip: dip only ever drops the nose.
+    s.rotation.set(0.2 + Math.sin(t * 0.011) * 0.06, -0.3 + Math.sin(t * 0.008) * 0.22, Math.sin(t * 0.014) * 0.08);
     this.ship.update(1 / 60, {
       bank: Math.sin(t * 0.02) * 0.3,
-      dip: Math.sin(t * 0.014) * 0.4,
       throttle: 1,
     });
     this.renderer.render(this.scene, this.camera);
@@ -81,7 +82,7 @@ export class Render3D {
     const show = p && !p.dead && !(p.inv > 0 && (p.t >> 2) % 2);
     this.ship.group.visible = !!show;
     if (p && show) {
-      this.ship.group.scale.setScalar(0.78);
+      this.ship.group.scale.setScalar(SHIP_SCALE);
       this.ship.group.rotation.set(0.2, -0.3, 0);
       this.ship.group.position.set(p.x - cam, -p.y, 0);
       this.ship.update(dt, {
