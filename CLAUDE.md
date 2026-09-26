@@ -14,6 +14,8 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 **Live build:** https://moamoamorte.github.io/x-76/ — GitHub Pages, redeployed by `.github/workflows/pages.yml` a couple of minutes after every merge to `main`. No manual deploy step; that's what makes it useful for trying changes on a phone.
 
+**PR previews:** every open PR also gets published at `.../pr-<number>/` (`.github/workflows/pr-preview.yml`, cleaned up by `pr-preview-cleanup.yml` on close), with the link commented on the PR. Useful for on-device debugging of a change before it merges.
+
 - Game: `/index.html` (add `?flat=1` to force the old 2D ship and bypass WebGL)
 - Model harness: `/preview.html` — fly the ship, play animations, inspect models
 

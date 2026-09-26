@@ -1,0 +1,32 @@
+name: PR Preview Cleanup
+
+# Removes the pr-<number>/ directory pr-preview.yml published once the PR
+# closes (merged or not), so gh-pages doesn't accumulate stale previews.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - name: Remove preview directory
+        run: |
+          rm -rf "pr-${{ github.event.pull_request.number }}"
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "Remove PR preview for #${{ github.event.pull_request.number }}"
+            git push
+          fi
