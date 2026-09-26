@@ -65,10 +65,10 @@ export class Render3D {
     s.visible = true;
     s.scale.setScalar(2.0);
     s.position.set(W / 2, -97 + Math.sin(t * 0.03) * 3, 0);
-    s.rotation.set(0.2 + Math.sin(t * 0.011) * 0.06, -0.3 + Math.sin(t * 0.008) * 0.22, 0);
+    // The nose sway lives on the pose, not in dip: dip only ever drops the nose.
+    s.rotation.set(0.2 + Math.sin(t * 0.011) * 0.06, -0.3 + Math.sin(t * 0.008) * 0.22, Math.sin(t * 0.014) * 0.08);
     this.ship.update(1 / 60, {
       bank: Math.sin(t * 0.02) * 0.3,
-      dip: Math.sin(t * 0.014) * 0.4,
       throttle: 1,
     });
     this.renderer.render(this.scene, this.camera);
