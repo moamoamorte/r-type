@@ -2,6 +2,7 @@
 """Static dev server for the game.
 
 - Disables caching, so edited ES modules always reload.
+- Answers /favicon.ico with 204 No Content, as there is no icon file.
 - Serves /__mtime, the newest modification time across the source files, which
   the preview page polls to reload itself when code changes.
 
@@ -42,6 +43,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        # There is no icon file (constraint: no assets); an empty answer keeps
+        # the browser's automatic request out of the console.
+        if self.path.split("?")[0] == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
         super().do_GET()
 
     def end_headers(self):
@@ -49,7 +56,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def log_message(self, fmt, *args):
-        if "__mtime" not in (args[0] if args else ""):
+        # Filter on the path, not args: send_error() logs with an HTTPStatus as
+        # args[0], and a malformed request may fail before self.path is set.
+        if not getattr(self, "path", "").startswith("/__mtime"):
             super().log_message(fmt, *args)
 
 
