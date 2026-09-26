@@ -5,7 +5,7 @@ import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { Input } from './input.js';
 import {
-  shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, DOCK, SHIP_SCALE,
+  shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, DOCK, SHIP_SCALE, POD_SCALE,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
 } from './tuning.js';
 import { liveReload } from './livereload.js';
@@ -88,6 +88,9 @@ const tailPointWorld = () => (scene.updateMatrixWorld(), models.ship.group.local
 // charge timing and pod behaviour match the real thing.
 const input = new Input();
 const U = 1 / SHIP_SCALE;      // game pixels -> preview world units
+// Pod size relative to the ship, as in game. The pod keeps full size when shown
+// on its own so it fills the model view.
+const POD_WITH_SHIP = POD_SCALE / SHIP_SCALE;
 const play = {
   x: -20, y: 0, tilt: 0, turn: 0, charge: 0, holdT: 0, speedLv: 0,
   pod: { state: 'front', x: 0, y: 0, vx: 0, has: true },
@@ -404,7 +407,9 @@ function frame(now) {
   const podVisible = playing ? play.pod.has : POD_DEMOS.has(demo.mode) || current === 'pod';
   models.ship.group.visible = current === 'ship' || POD_DEMOS.has(demo.mode) || playing;
   models.pod.group.visible = podVisible;
-  if (!playing && !POD_DEMOS.has(demo.mode) && current === 'pod') models.pod.group.position.set(0, 0, 0);
+  const podAlone = !playing && !POD_DEMOS.has(demo.mode) && current === 'pod';
+  if (podAlone) models.pod.group.position.set(0, 0, 0);
+  models.pod.group.scale.setScalar(podAlone ? 1 : POD_WITH_SHIP);
 
   if (!state.pause) {
     t += dt;
