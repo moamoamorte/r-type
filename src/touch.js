@@ -38,6 +38,7 @@ export class TouchControls {
     const root = document.createElement('div');
     root.id = 'touch';
     root.innerHTML = `
+      <div id="touchStart" class="touchZone"></div>
       <div id="touchStickZone" class="touchZone">
         <div id="touchStick"><div id="touchStickKnob"></div></div>
       </div>
@@ -50,7 +51,6 @@ export class TouchControls {
       <div id="touchPauseMenu">
         <button id="touchMute" class="touchBtn touchBtnFlat">MUTE</button>
       </div>
-      <div id="touchStart" class="touchZone"></div>
     `;
     document.getElementById('wrap').appendChild(root);
     this.root = root;
