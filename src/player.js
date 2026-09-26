@@ -8,6 +8,13 @@ const BEAM = {
   power: [0, 4, 8, 14, 22, 34],
 };
 
+// Docked pod centre relative to the ship, in game pixels (screen y down).
+// Set so the pod swallows the 3D model's nose tip, or caps its tail.
+export const DOCK = {
+  front: { x: 14, y: 2.5 },
+  back: { x: -14, y: 0 },
+};
+
 // ---------------------------------------------------------------------------
 export class PBullet {
   constructor(kind, x, y, vx, vy, o = {}) {
@@ -443,12 +450,12 @@ export class Pod {
         break;
       }
       case 'front':
-        this.x = p.x + 21;
-        this.y = p.y;
+        this.x = p.x + DOCK.front.x;
+        this.y = p.y + DOCK.front.y;
         break;
       case 'back':
-        this.x = p.x - 19;
-        this.y = p.y;
+        this.x = p.x + DOCK.back.x;
+        this.y = p.y + DOCK.back.y;
         break;
     }
 

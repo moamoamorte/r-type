@@ -4,6 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { Input } from './input.js';
+import { DOCK } from './player.js';
 import { liveReload } from './livereload.js';
 
 liveReload();
@@ -182,8 +183,8 @@ function stepPod() {
   if (!p.has) return;
   const wasDocked = p.state === 'front' || p.state === 'back';
   switch (p.state) {
-    case 'front': p.x = play.x + 21 * U; p.y = play.y; break;
-    case 'back': p.x = play.x - 19 * U; p.y = play.y; break;
+    case 'front': p.x = play.x + DOCK.front.x * U; p.y = play.y - DOCK.front.y * U; break;
+    case 'back': p.x = play.x + DOCK.back.x * U; p.y = play.y - DOCK.back.y * U; break;
     case 'free':
       p.y = THREE.MathUtils.lerp(p.y, play.y, 0.035);
       break;
@@ -215,11 +216,8 @@ function stepPod() {
 function applyPlay() {
   models.ship.group.position.set(play.x, play.y, 0);
   const pd = play.pod;
-  let px = pd.x, py = pd.y;
-  if (pd.state === 'front') { px -= 7 * U; py -= 2.5 * U; models.pod.setGrip(-1); }
-  else if (pd.state === 'back') { px += 5 * U; models.pod.setGrip(1); }
-  else models.pod.setGrip(1);
-  models.pod.group.position.set(px, py, 0);
+  models.pod.setGrip(pd.state === 'front' ? -1 : 1);
+  models.pod.group.position.set(pd.x, pd.y, 0);
   chargeMesh.visible = play.charge > 0;
   if (play.charge > 0) {
     const k = 0.4 + play.charge * 1.6;
