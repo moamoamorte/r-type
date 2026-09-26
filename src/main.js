@@ -10,6 +10,7 @@ import { Player, Pod, Bit, drawShip } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
 import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
+import { TouchControls } from './touch.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -44,6 +45,7 @@ class Game {
     this.r3d = flat2d ? null : Render3D.create(document.getElementById('screen3d'));
     if (flat2d) document.getElementById('screen3d').style.display = 'none';
     this.fx = new FX();
+    this.touch = new TouchControls(this);
     this.hi = loadHi();
     this.state = 'title';
     this.stateT = 0;
@@ -475,6 +477,7 @@ class Game {
     ctx.imageSmoothingEnabled = false;
     if (this.state === 'title') this.drawTitle();
     else this.drawPlay();
+    this.touch.render();
   }
 
   drawPlay() {
