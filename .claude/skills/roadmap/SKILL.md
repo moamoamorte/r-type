@@ -50,7 +50,7 @@ Read the whole issue, including its comments, before starting. If the issue is t
   - Step the simulation deterministically by calling `game.update()` in a loop.
   - Before screenshotting an overlay (hitboxes etc.), freeze the sim with `game.update = () => {}`. Drawing keeps running, but the camera stops scrolling out from under the overlay.
 - Check both render paths when the change touches drawing: the default 3D page and `?flat=1`. Check `/preview.html` when it touches the ship or pod.
-- Collect console errors. A 404 on `favicon.ico` is known noise.
+- Collect console errors. A clean page load logs none: `serve.py` answers `favicon.ico` with 204, and a missing file is a real 404, so any error is worth reading.
 - Crop screenshots to the area of interest. Send the before/after images to the user.
 
 **Commit and PR.**
