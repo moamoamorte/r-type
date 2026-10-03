@@ -3,10 +3,12 @@
 import * as THREE from '../vendor/three.module.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
+import { createShield } from './models/shield.js';
 import { Input } from './input.js';
 import {
   shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, DOCK, SHIP_SCALE, POD_SCALE,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
+  SHIELD_MAX, SHIELD_DAMAGE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV,
 } from './tuning.js';
 import { liveReload } from './livereload.js';
 
@@ -91,6 +93,13 @@ const U = 1 / SHIP_SCALE;      // game pixels -> preview world units
 // Pod size relative to the ship, as in game. The pod keeps full size when shown
 // on its own so it fills the model view.
 const POD_WITH_SHIP = POD_SCALE / SHIP_SCALE;
+
+// Shield bubble at its in-game size around the ship; only the "Shield hits" sequence shows it.
+const shield = createShield({ rx: SHIELD_RADIUS.x * U, ry: SHIELD_RADIUS.y * U, rz: 13 * U, fade: SHIELD_INV / 60 });
+shield.group.position.x = SHIELD_OFFSET * U;
+shield.group.visible = false;
+scene.add(shield.group);
+const hits = { shield: SHIELD_MAX, angle: 0, age: 99 };
 const play = {
   x: -20, y: 0, tilt: 0, turn: 0, charge: 0, holdT: 0, speedLv: 0,
   pod: { state: 'front', x: 0, y: 0, vx: 0, has: true },
@@ -241,6 +250,7 @@ const CAPTIONS = {
   arrive: 'The pod flies in from the left after the first crystal',
   dock: 'The pod docks on the nose',
   dockback: 'The pod docks at the tail',
+  shield: `Bullet hits on the shield: ${SHIELD_DAMAGE.bullet}% each, rippling from the impact; it refills once broken`,
 };
 const demo = { mode: 'idle', t: 0, next: 0 };
 
@@ -249,6 +259,7 @@ function setDemo(mode) {
   try { sessionStorage.setItem('preview-demo', mode); } catch { /* private mode */ }
   demo.t = 0;
   demo.next = 0;
+  Object.assign(hits, { shield: SHIELD_MAX, angle: 0, age: 99 });
   clearShots();
   document.getElementById('caption').textContent = CAPTIONS[mode] || '';
   for (const b of document.querySelectorAll('[data-demo]')) b.classList.toggle('on', b.dataset.demo === mode);
@@ -311,6 +322,21 @@ function runDemo(dt) {
       if (t > 5.5) { demo.t = 0; demo.clamped = false; pod.release(); pod.setGrip(1); }
       break;
     }
+    case 'shield':
+      hits.age += dt;
+      if (t >= demo.next) {
+        if (hits.shield <= 0) {
+          hits.shield = SHIELD_MAX;
+          demo.next = t + 1.2;
+          break;
+        }
+        hits.shield = Math.max(0, hits.shield - SHIELD_DAMAGE.bullet);
+        hits.angle = Math.random() * Math.PI * 2;
+        hits.age = 0;
+        ship.hit();
+        demo.next = t + (hits.shield > 0 ? 0.9 : 1.6);
+      }
+      break;
   }
 }
 
@@ -428,6 +454,10 @@ function frame(now) {
     models.pod.update(dt, { charge: playing ? play.charge : 0 });
     stepShots(dt);
   }
+  shield.group.visible = demo.mode === 'shield';
+  if (demo.mode === 'shield' && !state.pause) {
+    shield.update(dt, { strength: hits.shield / SHIELD_MAX, hitAngle: hits.angle, hitAge: hits.age });
+  }
 
   const w = view.clientWidth, h = view.clientHeight;
   if (view.width !== w * renderer.getPixelRatio() || view.height !== h * renderer.getPixelRatio()) {
@@ -442,9 +472,9 @@ function frame(now) {
   const info = renderer.info.render;
   hud.textContent = playing
     ? `fly  charge ${(play.charge * 100).toFixed(0)}%  pod ${play.pod.state}  ${fps.toFixed(0)} fps`
-    : `${current}  ${demo.mode}  ${fps.toFixed(0)} fps  ${info.triangles} tris  ${info.calls} calls`;
+    : `${current}  ${demo.mode}${demo.mode === 'shield' ? `  shield ${hits.shield}%` : ''}  ${fps.toFixed(0)} fps  ${info.triangles} tris  ${info.calls} calls`;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-window.__preview = { scene, camera, cam, models, state, renderer, demo, setDemo, play, input };
+window.__preview = { scene, camera, cam, models, shield, hits, state, renderer, demo, setDemo, play, input };

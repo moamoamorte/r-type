@@ -29,9 +29,10 @@ src/            game + harness modules
 | `src/font.js` | 69 | 5x7 bitmap font with a render cache |
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
-| `src/render3d.js` | 117 | 3D layer: draws ship + pod over the 2D playfield |
+| `src/render3d.js` | 132 | 3D layer: draws ship, pod and shield over the 2D playfield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
+| `src/models/shield.js` | 91 | Faceted shield bubble with an impact-ripple shader |
 | `src/models/materials.js` | 73 | Toon ramp, ink-outline shader, shared palette |
 | `src/preview.js` | 445 | Harness: orbit, sequences, fly mode |
 | `src/livereload.js` | 34 | Polls `/__mtime`, reloads on change |
@@ -58,7 +59,8 @@ All collision is circle-based and lives in `main.js#collide()`.
 - Enemies expose either themselves or a `parts` array of `{x, y, r, armored}`. Armored parts block shots (spark + "tink") but take no damage; this is how the boss's iris, the serpent's body and tentacle segments work.
 - Beams pierce: they carry a `power` budget and a `hitSet` keyed by *part*, so one beam can chew through several enemies but only hits each part once.
 - The pod and bits damage what they touch and absorb enemy bullets.
-- The player dies to any enemy part, any enemy bullet, or any solid terrain tile. Terrain kills even while invulnerable.
+- The player has a percentage shield (`SHIELD_*` in `tuning.js`). Enemy bullets, enemy parts, the boss and terrain all go through `game.hitPlayer(kind, angle)`, which spends shield and opens a short invulnerable window (`player.inv`, with `player.hitT` marking it as a hit rather than a respawn). A hit on an empty shield destroys the ship.
+- Touching terrain also bounces the ship back to its last clear position. If that position is no longer reachable (pinned against a wall by the scroll), the ship is crushed outright.
 
 ## Terrain
 
@@ -75,13 +77,13 @@ Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY
 - Terrain is built from ceiling/floor height profiles per column plus explicit rectangles for pillars, blocks and obstacles.
 - Spawns are a list sorted by camera position: `{x: camTrigger, type, ...opts}`. Terrain-mounted enemies carry `wx` (world x) and `static: true`, and are triggered a screen-width early.
 - Constants: `CHECKPOINTS = [0, 1080, 2560, 3480, 4560, 5300]`, `WARNING_CAM = 5470`, `BOSS_CAM = 5600`.
-- Death sends the player back to the highest checkpoint passed, clears the field and **removes all power-ups** (arcade-style).
+- Death sends the player back to the highest checkpoint passed, clears the field and **removes all power-ups** (arcade-style). Passing a checkpoint, and every new life, refills the shield.
 
-Enemies: Drifter, Dart, Carrier (drops power-ups), Turret, Hopper, Bulwark (heavy walker), Hatch (spawner), Larva, Serpent. Boss: 170 hp, an armoured iris that opens on a cycle, two 16-segment tentacles, spore launches, and a faster second phase below half health.
+Enemies: Drifter, Dart, Carrier (drops power-ups, including shield cells), Turret, Hopper, Bulwark (heavy walker), Hatch (spawner), Larva, Serpent. Boss: 170 hp, an armoured iris that opens on a cycle, two 16-segment tentacles, spore launches, and a faster second phase below half health.
 
 ## Rendering: two stacked layers
 
-The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship and pod.
+The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship, pod and shield bubble. The bubble reads `player.shield` and `player.lastHit`; in `?flat=1` the player draws a 2D octagon outline instead.
 
 `render3d.js`:
 

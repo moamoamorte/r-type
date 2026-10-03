@@ -4,6 +4,7 @@ import { LASER_HUE } from './items.js';
 import {
   shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, BEAM, DOCK,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
+  SHIELD_MAX, SHIELD_INV, SHIELD_RADIUS, SHIELD_OFFSET,
 } from './tuning.js';
 
 // ---------------------------------------------------------------------------
@@ -271,6 +272,11 @@ export class Player {
     this.dead = false;
     this.entering = true;
     this.inv = 0;
+    this.shield = this.maxShield = SHIELD_MAX;
+    this.hitT = 0;          // counts down with inv after a shield hit, so it doesn't blink like a respawn
+    this.lastHit = null;    // { angle, t }: where the last shield hit landed, for the bubble's ripple
+    this.safeX = x;         // last position clear of terrain, to bounce back to
+    this.safeY = y;
     this.speedLv = 0;
     this.missile = false;
     this.missileCd = 0;
@@ -295,9 +301,12 @@ export class Player {
     if (this.entering) {
       this.x += 1.6;
       if (this.x - g.cam >= 56) { this.entering = false; this.inv = 100; }
+      this.safeX = this.x;
+      this.safeY = this.y;
       return;
     }
     if (this.inv > 0) this.inv--;
+    if (this.hitT > 0) this.hitT--;
 
     let dx = 0, dy = 0;
     if (inp.held('left')) dx--;
@@ -312,7 +321,18 @@ export class Player {
     this.x = clamp(this.x, g.cam + 16, g.cam + W - 22);
     this.y = clamp(this.y, 10, H - 9);
 
-    if (g.terrain.boxSolid(this.x + 2, this.y, 11, 3.5)) { g.killPlayer(); return; }
+    if (g.terrain.boxSolid(this.x + 2, this.y, 11, 3.5)) {
+      // Bounce back to the last clear spot. If the scroll has pinned the ship
+      // against the wall there is nowhere to go, and it's crushed.
+      const a = Math.atan2(this.y - this.safeY, this.x - this.safeX);
+      this.x = Math.max(this.safeX, g.cam + 16);
+      this.y = this.safeY;
+      if (g.terrain.boxSolid(this.x + 2, this.y, 11, 3.5)) { g.killPlayer(); return; }
+      g.hitPlayer('terrain', a);
+      if (this.dead) return;
+    }
+    this.safeX = this.x;
+    this.safeY = this.y;
 
     if (this.missileCd > 0) this.missileCd--;
     if (inp.pressed('fire')) { this.fire(); this.holdT = 0; }
@@ -362,12 +382,53 @@ export class Player {
     g.r3d?.ship.fire(1 + L * 0.4);
   }
 
+  // 2D fallback only; the 3D layer draws the ship and its shield otherwise.
   draw(ctx, cam) {
     if (this.dead) return;
-    if (this.inv > 0 && (this.t >> 2) % 2) return;
+    if (this.inv > 0 && !this.hitT && (this.t >> 2) % 2) return;
     const x = Math.round(this.x) - cam, y = Math.round(this.y);
     drawShip(ctx, x, y, this.tilt);
+    if (this.hitT > SHIELD_INV - 8) {
+      // Struck: draw the ship again additively so it flares white.
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      drawShip(ctx, x, y, this.tilt, false);
+      ctx.restore();
+    }
+    this.drawShield(ctx, x + SHIELD_OFFSET, y);
     this.drawCharge(ctx, cam);
+  }
+
+  // An octagonal outline, shown only after a hit: it fades out over the
+  // invulnerable window, dimmer the weaker the shield, with a flare where it was hit.
+  drawShield(ctx, x, y) {
+    const age = this.lastHit ? this.t - this.lastHit.t : Infinity;
+    const show = Math.max(0, 1 - age / SHIELD_INV);
+    if (show <= 0) return;
+    const k = this.shield / this.maxShield;
+    if (k < 0.3 && Math.random() < 0.3) return;
+    const { x: rx, y: ry } = SHIELD_RADIUS;
+    const flare = Math.max(0, 1 - age / 30);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(63,216,203,${show * show * (0.3 + 0.4 * k) + 0.5 * flare})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i + 0.5) * (TAU / 8);
+      ctx.lineTo(x + Math.cos(a) * rx, y + Math.sin(a) * ry);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    if (flare > 0) {
+      const a = this.lastHit.angle, spread = 0.4 + (1 - flare) * 1.2;
+      ctx.strokeStyle = `rgba(200,255,250,${flare})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, a - spread, a + spread);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Charge orb at the nose; drawn on the 2D layer even when the ship is 3D.

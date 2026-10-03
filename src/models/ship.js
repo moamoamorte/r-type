@@ -132,7 +132,12 @@ export function createShip({ outline = OUT } = {}) {
   // Display pose: mostly side-on, turned just enough to show the top and flank.
   root.rotation.set(0.2, -0.3, 0);
 
-  let t = 0, flashT = 0, flashPower = 1, recoil = 0;
+  // Lit materials, so a shield hit can flare the whole hull.
+  const lit = [];
+  root.traverse((o) => { if (o.isMesh && o.material.emissive) lit.push(o.material); });
+  const HIT_TIME = 0.22;
+
+  let t = 0, flashT = 0, flashPower = 1, recoil = 0, hitT = 0;
   return {
     group: root,
     bank,
@@ -143,6 +148,8 @@ export function createShip({ outline = OUT } = {}) {
       flashT = 0.06 + 0.04 * power;
       recoil = Math.min(2.2, 0.5 * power);
     },
+    // Called when the shield takes a hit: a brief cyan-white flare.
+    hit() { hitT = HIT_TIME; },
     update(dt, state = {}) {
       t += dt;
       if (flashT > 0) {
@@ -153,6 +160,11 @@ export function createShip({ outline = OUT } = {}) {
         flashMat.opacity = 0.35 + 0.6 * k;
       } else {
         flash.visible = false;
+      }
+      if (hitT > 0) {
+        hitT = Math.max(0, hitT - dt);
+        const k = hitT / HIT_TIME;
+        for (const m of lit) m.emissive.setRGB(0.55 * k, 0.9 * k, 0.85 * k);
       }
       recoil = Math.max(0, recoil - dt * 7);
       bank.position.x = -recoil;
