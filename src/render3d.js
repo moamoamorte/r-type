@@ -8,6 +8,7 @@ import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { createShield } from './models/shield.js';
 import { createTerrain3D } from './models/terrain3d.js';
+import { createBackdrop3D } from './models/backdrop3d.js';
 import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV } from './tuning.js';
 
 // Camera distance from the play plane. Farther flattens the perspective: at
@@ -48,6 +49,9 @@ export class Render3D {
     this.scene = new THREE.Scene();
     this.world.add(...lights());
     this.scene.add(...lights());
+    // Haze that only reaches past the terrain (its faces are 612-668 away),
+    // so the backdrops darken with depth and the terrain stands out in front.
+    this.world.fog = new THREE.Fog(0x05070e, CAM_DIST + 60, CAM_DIST + 760);
 
     // Perspective, placed so the z = 0 plane maps game pixels 1:1 to world
     // units: anything at z = 0 (block fronts, the ship) lands exactly where
@@ -77,13 +81,17 @@ export class Render3D {
   }
 
   // Rebuilt whenever the game switches to a stage with different terrain.
-  setTerrain(terrain) {
+  setTerrain(terrain, backdrops) {
     if (this.terrainSrc === terrain) return;
-    this.terrain?.dispose();
-    if (this.terrain) this.world.remove(this.terrain.group);
+    for (const old of [this.terrain, this.backdrop]) {
+      if (!old) continue;
+      old.dispose();
+      this.world.remove(old.group);
+    }
     this.terrainSrc = terrain;
     this.terrain = createTerrain3D(terrain);
-    this.world.add(this.terrain.group);
+    this.backdrop = createBackdrop3D(backdrops, CAM_DIST);
+    this.world.add(this.terrain.group, this.backdrop.group);
   }
 
   // Both passes with whatever is currently posed.
@@ -176,7 +184,7 @@ export class Render3D {
       bank: Math.sin(t * 0.02) * 0.3,
       throttle: 1,
     });
-    if (this.terrain) this.terrain.group.visible = false;
+    if (this.terrain) this.terrain.group.visible = this.backdrop.group.visible = false;
     this.aimCamera(0, 0);
     this.draw();
   }
@@ -186,9 +194,10 @@ export class Render3D {
   render(game, camD, shake = { x: 0, y: 0 }, dt = 1 / 60) {
     const p = game.player;
     const cam = game.cam;
-    this.setTerrain(game.terrain);
-    this.terrain.group.visible = true;
+    this.setTerrain(game.terrain, game.stage.level.BACKDROPS);
+    this.terrain.group.visible = this.backdrop.group.visible = true;
     this.terrain.update(camD, W);
+    this.backdrop.update(camD, W);
     this.aimCamera(-shake.x, shake.y);
 
     // Respawn invulnerability blinks; the shorter window after a shield hit doesn't.

@@ -20,9 +20,9 @@ src/            game + harness modules
 | `src/tuning.js` | 47 | Handling constants shared by the game and the preview sandbox |
 | `src/enemies.js` | 624 | Enemy base + 8 enemy types, enemy bullets |
 | `src/boss.js` | 406 | Stage 1 boss ("Oculus Bloom") |
-| `src/level1.js` | 184 | Stage 1 terrain shape and spawn script |
+| `src/level1.js` | 191 | Stage 1 terrain shape, backdrop spans and spawn script |
 | `src/terrain.js` | 79 | Tile collision grid and depth map |
-| `src/background.js` | 188 | Starfield, nebula, station interior, boss chamber walls |
+| `src/background.js` | 97 | Starfield and nebula (2D, behind everything) |
 | `src/audio.js` | 333 | Synthesised sound effects + music sequencer |
 | `src/fx.js` | 125 | Particles, explosions, screen shake |
 | `src/items.js` | 85 | Power-ups |
@@ -30,11 +30,13 @@ src/            game + harness modules
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
 | `src/view.js` | 30 | Display scale (logical → device pixels), `snap()`, scaled offscreen canvases |
-| `src/render3d.js` | 240 | 3D layer: perspective camera; draws terrain, then ship, pod and shield |
+| `src/render3d.js` | 249 | 3D layer: perspective camera; draws terrain, then ship, pod and shield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
 | `src/models/shield.js` | 91 | Faceted shield bubble with an impact-ripple shader |
-| `src/models/terrain3d.js` | 247 | Stage terrain built from the tile grid: chamfered blocks, decals, ink lines |
+| `src/models/terrain3d.js` | 214 | Stage terrain built from the tile grid: chamfered blocks, decals, ink lines |
+| `src/models/backdrop3d.js` | 173 | Station interior and boss chamber walls, set back in depth |
+| `src/models/geom.js` | 54 | Triangle-by-triangle geometry builder with vertex colours, shared by the two above |
 | `src/models/materials.js` | 73 | Toon ramp, ink-outline shader, shared palette |
 | `src/preview.js` | 445 | Harness: orbit, sequences, fly mode |
 | `src/livereload.js` | 34 | Polls `/__mtime`, reloads on change |
@@ -70,11 +72,13 @@ All collision is circle-based and lives in `main.js#collide()`.
 
 It's drawn in 3D by `models/terrain3d.js`, built once per stage (about 20 ms for stage 1) in 64-column chunks, each a merged mesh, a mesh of indicator lights and a set of ink lines, so a frame draws a handful of calls. Every solid tile contributes a **front face at z = 0 exactly over its tile**, inset where an edge is exposed to make room for a 45° chamfer; exposed edges then recede to z = −`DEPTH` (28). Colour comes from vertex colours: `computeDepth()` measures each tile's distance to the nearest empty tile, and deeper tiles get darker fronts. Panel seams, vents, rivets, lights, blotches, veins and spikes are cheap geometry placed by per-tile seeds. The terrain group scrolls by the same device-snapped `camD` as the 2D sprites, so terrain-mounted enemies stay locked to it. Changing the grid needs another `computeDepth()` and a rebuild (`r3d.setTerrain`).
 
+Behind it, `models/backdrop3d.js` builds the walls listed in the level's `BACKDROPS` (`{ kind, x0, x1 }` in world x): the station interior (a recessed-panel wall at z = −230, trusses at −150, columns with warning lamps at −110) and the boss chamber (a jittered, faceted flesh sheet at −200 with tendons standing off it). They scroll with the terrain; the perspective camera alone makes deeper layers slide slower, so there's no per-layer parallax code. Designs are scaled up by `(CAM_DIST − z) / CAM_DIST` so they read at the size the old 2D tiles had. Fog on the world scene starts just behind the terrain, so the backdrops darken with depth and never compete with it.
+
 Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY(x, fromY)`. The `fromY` hints matter — scanning for a floor from the wrong side finds the wrong surface (this caused a real bug with turrets mounted on the central block).
 
 ## Stage 1
 
-`level1.js` exports `buildTerrain()`, `buildSpawns()`, `CHECKPOINTS`, `WARNING_CAM`, `BOSS_CAM` and `SCROLL`; every level module has the same shape.
+`level1.js` exports `buildTerrain()`, `buildSpawns()`, `BACKDROPS`, `CHECKPOINTS`, `WARNING_CAM`, `BOSS_CAM` and `SCROLL`; every level module has the same shape.
 
 - Terrain is built from ceiling/floor height profiles per column plus explicit rectangles for pillars, blocks and obstacles.
 - Spawns are a list sorted by camera position: `{x: camTrigger, type, ...opts}`. Terrain-mounted enemies carry `wx` (world x) and `static: true`, and are triggered a screen-width early.
@@ -91,8 +95,8 @@ Back to front (DECISIONS §22):
 
 | Layer | Canvas | Draws |
 | --- | --- | --- |
-| Back 2D | `#back` (`bctx`) | Starfield, nebula, station interior and boss chamber walls |
-| 3D, pass 1 | `#screen3d` | Terrain |
+| Back 2D | `#back` (`bctx`) | Starfield and nebula |
+| 3D, pass 1 | `#screen3d` | Backdrops (z −110 to −230, fogged), then terrain |
 | 3D, pass 2 | `#screen3d` | Ship, pod, shield bubble, always over terrain (depth cleared between passes) |
 | Front 2D | `#screen` (`ctx`) | Enemies, boss, items, bullets, bits, the charge orb, effects, popups, HUD, overlays |
 

@@ -6,6 +6,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { mulberry32 } from '../util.js';
 import { TILE, ROWS, HULL, ORGANIC, MACHINE } from '../terrain.js';
 import { toonRamp } from './materials.js';
+import { Builder, C } from './geom.js';
 
 export const DEPTH = 28;       // how far the blocks recede
 const CH = 1.25;               // chamfer on exposed front edges
@@ -26,40 +27,6 @@ const PAL = {
 };
 const LIGHTS = [0xff5a3a, 0x4affc0, 0xffd24a];
 const VEIN = 0xb0304a;
-
-// Accumulates flat-shaded triangles with per-vertex colour.
-class Builder {
-  constructor() { this.pos = []; this.nrm = []; this.col = []; }
-  tri(a, b, c, n, color) {
-    this.pos.push(...a, ...b, ...c);
-    for (let i = 0; i < 3; i++) { this.nrm.push(...n); this.col.push(color.r, color.g, color.b); }
-  }
-  // Corners in counter-clockwise order as seen from the side the normal faces.
-  quad(a, b, c, d, n, color) { this.tri(a, b, c, n, color); this.tri(a, c, d, n, color); }
-  // Axis-aligned decal rectangle on the front plane.
-  rect(xa, ya, xb, yb, color, z = DETAIL_Z) {
-    const x0 = Math.min(xa, xb), x1 = Math.max(xa, xb), y0 = Math.min(ya, yb), y1 = Math.max(ya, yb);
-    this.quad([x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], [0, 0, 1], color);
-  }
-  geometry() {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nrm, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
-    g.computeBoundingSphere();
-    return g;
-  }
-  get empty() { return this.pos.length === 0; }
-}
-
-// THREE.Color converts from sRGB, so vertex colours land in linear space.
-const colors = new Map();
-const C = (hex, k = 1) => {
-  const key = hex * 8 + k;
-  let c = colors.get(key);
-  if (!c) colors.set(key, (c = new THREE.Color(hex).multiplyScalar(k)));
-  return c;
-};
 
 const S2 = Math.SQRT1_2;
 
@@ -102,7 +69,7 @@ export function createTerrain3D(terrain) {
 }
 
 function buildChunk(t, c0, c1) {
-  const body = new Builder(), lights = new Builder(), lines = [];
+  const body = new Builder(DETAIL_Z), lights = new Builder(DETAIL_Z), lines = [];
   // Off the top and bottom of the grid counts as solid, so the screen edges
   // never get faces; off either end counts as open.
   const solidAt = (c, r) => (r < 0 || r >= ROWS ? true : t.get(c, r) !== 0);
