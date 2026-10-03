@@ -1,7 +1,7 @@
-// The ship's shield: a faceted shell around the hull. Additive and depth-write
-// free, so it never hides the ship. It is brightest when full; as it drains,
-// facets drop out and the whole shell flickers. A hit sends a ripple across the
-// surface from the point of impact.
+// The ship's shield: a faceted shell around the hull, invisible until something
+// hits it. Each hit flashes it up and lets it fade out, with a ripple spreading
+// from the point of impact. Additive and depth-write free, so it never hides the
+// ship. The weaker the shield, the dimmer the flash and the more facets drop out.
 import * as THREE from '../../vendor/three.module.js';
 
 const VERT = /* glsl */ `
@@ -22,7 +22,7 @@ const VERT = /* glsl */ `
 const FRAG = /* glsl */ `
   uniform vec3 uColor;
   uniform float uStrength;   // 0..1 shield remaining
-  uniform float uAlpha;      // whole-shell flicker
+  uniform float uAlpha;      // post-hit fade and low-shield flicker
   uniform vec3 uHitDir;      // unit direction of the last impact
   uniform float uHitAge;     // seconds since it
   uniform float uTime;
@@ -37,16 +37,17 @@ const FRAG = /* glsl */ `
     float ring = exp(-pow((d - uHitAge * 6.0) * 3.5, 2.0)) * max(0.0, 1.0 - uHitAge / 0.5);
     float spot = exp(-d * d * 5.0) * max(0.0, 1.0 - uHitAge / 0.3);
     #ifdef EDGE
-    float base = 0.04 + 0.12 * uStrength;
+    float base = 0.15 + 0.3 * uStrength;
     #else
     // Facets drop out as the shield weakens, reshuffled a few times a second.
     if (hash(floor(vFace * 40.0) + floor(uTime * 8.0)) > 0.25 + uStrength) discard;
-    float base = (0.02 + 0.45 * pow(1.0 - vFacing, 2.0)) * (0.3 + 0.7 * uStrength);
+    float base = (0.05 + 0.6 * pow(1.0 - vFacing, 2.0)) * (0.3 + 0.7 * uStrength);
     #endif
     gl_FragColor = vec4(uColor, (base + ring * 0.9 + spot * 1.2) * uAlpha);
   }`;
 
-export function createShield({ rx = 25, ry = 14, rz = 13, color = 0x3fd8cb } = {}) {
+// fade: seconds the shell stays visible after a hit.
+export function createShield({ rx = 25, ry = 14, rz = 13, color = 0x3fd8cb, fade = 0.75 } = {}) {
   const root = new THREE.Group();
   const shell = new THREE.Group();
   shell.scale.set(rx, ry, rz);
@@ -78,10 +79,12 @@ export function createShield({ rx = 25, ry = 14, rz = 13, color = 0x3fd8cb } = {
     // space (y down); hitAge is seconds since that hit.
     update(dt, { strength = 1, hitAngle = 0, hitAge = 99 } = {}) {
       t += dt;
-      root.visible = strength > 0;
+      const show = Math.max(0, 1 - hitAge / fade);
+      root.visible = show > 0;
+      if (!root.visible) return;
       uniforms.uTime.value = t;
       uniforms.uStrength.value = strength;
-      uniforms.uAlpha.value = strength < 0.3 && Math.random() < 0.3 ? 0.25 : 1;
+      uniforms.uAlpha.value = show * show * (strength < 0.3 && Math.random() < 0.3 ? 0.25 : 1);
       // Map the screen angle onto the unit shell, tipped toward the camera so the
       // ripple spreads over the visible face rather than starting on the rim.
       uniforms.uHitDir.value.set(Math.cos(hitAngle) / rx, -Math.sin(hitAngle) / ry, 0.7 / rz).normalize();

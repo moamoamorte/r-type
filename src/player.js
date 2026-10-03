@@ -399,17 +399,19 @@ export class Player {
     this.drawCharge(ctx, cam);
   }
 
-  // An octagonal outline that dims as the shield drains, with a flare where it was hit.
+  // An octagonal outline, shown only after a hit: it fades out over the
+  // invulnerable window, dimmer the weaker the shield, with a flare where it was hit.
   drawShield(ctx, x, y) {
+    const age = this.lastHit ? this.t - this.lastHit.t : Infinity;
+    const show = Math.max(0, 1 - age / SHIELD_INV);
+    if (show <= 0) return;
     const k = this.shield / this.maxShield;
-    if (k <= 0) return;
     if (k < 0.3 && Math.random() < 0.3) return;
     const { x: rx, y: ry } = SHIELD_RADIUS;
-    const age = this.lastHit ? this.t - this.lastHit.t : Infinity;
     const flare = Math.max(0, 1 - age / 30);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = `rgba(63,216,203,${0.12 + 0.3 * k + 0.5 * flare})`;
+    ctx.strokeStyle = `rgba(63,216,203,${show * show * (0.3 + 0.4 * k) + 0.5 * flare})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i < 8; i++) {
