@@ -16,6 +16,8 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 **PR previews:** every open PR also gets published at `.../pr-<number>/` (`.github/workflows/pr-preview.yml`, cleaned up by `pr-preview-cleanup.yml` on close), with the link commented on the PR. Useful for on-device debugging of a change before it merges.
 
+**Every PR description includes a "Try it" link** to its preview, `https://moamoamorte.github.io/x-76/pr-<number>/`, plus warp links (`?cp=`, `?boss=1`, `?power=` etc.) to the parts the change touches. Add it right after creating the PR, once the number is known.
+
 - Game: `/index.html` (add `?flat=1` to force the old 2D ship and bypass WebGL)
 - Model harness: `/preview.html` — fly the ship, play animations, inspect models
 
