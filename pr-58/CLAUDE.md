@@ -18,6 +18,8 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 **Every PR description includes a "Try it" link** to its preview, `https://moamoamorte.github.io/x-76/pr-<number>/`, plus warp links (`?cp=`, `?boss=1`, `?power=` etc.) to the parts the change touches. Add it right after creating the PR, once the number is known.
 
+**When delivering a PR, also run the game locally from the checkout you changed** and put clickable `http://localhost:<port>/...` links in the chat reply (same warp links as the PR), so the owner can see the change immediately without waiting for the Pages deploy. Check that the server is actually serving *this* checkout: an old `serve.py` from another worktree may already hold 8765 (`lsof -iTCP:8765 -sTCP:LISTEN`, then check its cwd). If so, run on another port (`python3 serve.py 8766`) rather than killing it.
+
 - Game: `/index.html` (add `?flat=1` to force the old 2D ship and bypass WebGL)
 - Model harness: `/preview.html` — fly the ship, play animations, inspect models
 
