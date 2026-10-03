@@ -19,6 +19,13 @@ export function toggleFullscreen() {
   document.documentElement.requestFullscreen?.()?.catch((err) => console.warn('fullscreen request failed:', err));
 }
 
+// True when launched from the Home Screen (iOS sets navigator.standalone;
+// everything else reports the manifest's display mode).
+function isStandalone() {
+  return navigator.standalone === true
+    || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+}
+
 export class TouchControls {
   constructor(game) {
     this.game = game;
@@ -110,11 +117,8 @@ export class TouchControls {
   // button kept failing on-device after both landed.
   wireFullscreenButton() {
     const el = this.root.querySelector('#touchFull');
-    // iPhone Safari had no Fullscreen API at all before iOS 16.4 - no event
-    // wiring fixes that. Rather than leave a button that silently does
-    // nothing on tap (indistinguishable from this bug), remove it so the
-    // controls are honest about what's actually available.
-    if (typeof document.documentElement.requestFullscreen !== 'function') {
+    // Launched from the Home Screen there's no browser UI left to hide.
+    if (isStandalone()) {
       el.remove();
       return;
     }
@@ -125,10 +129,39 @@ export class TouchControls {
     });
     el.addEventListener('pointerup', (e) => { e.preventDefault(); el.classList.remove('on'); });
     el.addEventListener('pointercancel', () => el.classList.remove('on'));
+    // iPhone Safari has no element Fullscreen API on any iOS version (iPadOS
+    // 16.4 added it for iPad only), so no event wiring can make the call
+    // work there. Running as a Home Screen web app is the only way to lose
+    // the browser UI, so the button explains that instead (#56).
+    const onTap = typeof document.documentElement.requestFullscreen === 'function'
+      ? toggleFullscreen
+      : () => this.showHomeScreenHint();
     el.addEventListener('touchend', (e) => {
       e.preventDefault();
-      toggleFullscreen();
+      onTap();
     });
+  }
+
+  // Lives in #wrap rather than #touch so the double-tap guard on #touch
+  // can't veto the tap that closes it.
+  showHomeScreenHint() {
+    const g = this.game;
+    const pausedHere = g.state === 'play' && !g.paused;
+    if (pausedHere) g.setPaused(true);
+    const hint = document.createElement('button');
+    hint.id = 'homeScreenHint';
+    hint.innerHTML = `
+      <b>FULLSCREEN ON IPHONE</b>
+      <span>Safari can't hide its toolbars for a web page.<br>
+      Instead, open Safari's Share menu, choose<br>
+      <b>Add to Home Screen</b>, then start X-76 from that icon.</span>
+      <i>TAP TO CLOSE</i>
+    `;
+    hint.addEventListener('click', () => {
+      hint.remove();
+      if (pausedHere && g.paused) g.setPaused(false);
+    });
+    document.getElementById('wrap').appendChild(hint);
   }
 
   // The standard fix for "double-tap zooms the page" on iOS Safari: touch-
