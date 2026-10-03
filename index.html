@@ -16,8 +16,10 @@
 </head>
 <body>
   <div id="wrap">
-    <canvas id="screen" width="384" height="240"></canvas>
+    <!-- Back to front: background, 3D layer, sprites + HUD (see main.js). -->
+    <canvas id="back" width="384" height="240"></canvas>
     <canvas id="screen3d"></canvas>
+    <canvas id="screen" width="384" height="240"></canvas>
   </div>
   <div id="rotateHint">ROTATE YOUR DEVICE<br>FOR THE BEST EXPERIENCE</div>
   <script type="module" src="src/main.js"></script>

@@ -1,25 +1,16 @@
-// Tile-based scrolling terrain: collision grid + pre-rendered artwork.
-import { W, H, mulberry32 } from './util.js';
-import { view } from './view.js';
+// Tile-based terrain: the collision grid. It's drawn by models/terrain3d.js.
+import { H } from './util.js';
 
 export const TILE = 8;
 export const ROWS = H / TILE; // 28
-const SLICE = 256;            // logical px per cached strip of terrain art
 
 // Tile types
 export const HULL = 1, ORGANIC = 2, MACHINE = 3;
-
-const PAL = {
-  [HULL]: { d: ['#6a7fa3', '#4f6082', '#3b4762', '#2b3347', '#20263a'], hi: '#c4d4ec', mid: '#8ea2c4', lo: '#161b28' },
-  [ORGANIC]: { d: ['#8c4a68', '#6c3652', '#4f263d', '#381a2c', '#2a1321'], hi: '#d88aa8', mid: '#a45f80', lo: '#1a0b14' },
-  [MACHINE]: { d: ['#667080', '#4b5260', '#383d48', '#2a2e36', '#1f2228'], hi: '#b8c2d0', mid: '#848e9e', lo: '#131519' },
-};
 
 export class Terrain {
   constructor(cols) {
     this.cols = cols;
     this.grid = new Uint8Array(cols * ROWS);
-    this.slices = new Map();
   }
 
   get(c, r) {
@@ -66,11 +57,10 @@ export class Terrain {
     return 0;
   }
 
-  // Precomputes the depth map; the art itself is drawn lazily in slices (see
-  // draw()). Call again after changing the grid.
-  render() {
+  // Depth map: 1 = surface tile, rising toward the interior. The 3D terrain
+  // darkens deeper tiles with it. Call again after changing the grid.
+  computeDepth() {
     const { cols } = this;
-    // Depth map: 1 = surface tile, rising toward the interior (for fake 3D shading).
     const depth = new Uint8Array(cols * ROWS);
     for (let i = 0; i < depth.length; i++) depth[i] = this.grid[i] ? 9 : 0;
     const dAt = (cc, rr) => (rr < 0 || rr >= ROWS || cc < 0 || cc >= cols ? 9 : depth[cc * ROWS + rr]);
@@ -85,117 +75,5 @@ export class Terrain {
       }
     }
     this.depth = depth;
-    this.slices = new Map();
-  }
-
-  // One SLICE-wide strip of art at the current display scale. A whole stage at
-  // device resolution would be far past canvas size and memory limits, so only
-  // the strips near the camera exist. Each tile seeds its own PRNG, so a tile
-  // looks the same whichever strip draws it.
-  renderSlice(i) {
-    const { cols, depth } = this;
-    // Strip edges are placed in whole device pixels, with a spare column of
-    // overlap, so neighbouring strips meet without a seam at any scale.
-    const s = view.s;
-    const cv = document.createElement('canvas');
-    cv.ox = Math.round(i * SLICE * s);
-    cv.width = Math.ceil(SLICE * s) + 1;
-    cv.height = Math.round(H * s);
-    const c = cv.getContext('2d');
-    c.setTransform(s, 0, 0, cv.height / H, -cv.ox, 0);
-    const open = (cc, rr) => rr >= 0 && rr < ROWS && cc >= 0 && cc < cols && !this.get(cc, rr);
-    // One column either side: organic blobs and spikes overhang their tile.
-    const c0 = Math.max(0, (i * SLICE) / TILE - 1), c1 = Math.min(cols, ((i + 1) * SLICE) / TILE + 1);
-
-    for (let cc = c0; cc < c1; cc++) {
-      for (let rr = 0; rr < ROWS; rr++) {
-        const v = this.get(cc, rr);
-        if (!v) continue;
-        const rng = mulberry32(90210 + cc * ROWS + rr);
-        const pal = PAL[v];
-        const d = Math.min(5, depth[cc * ROWS + rr]);
-        const x = cc * TILE, y = rr * TILE;
-        c.fillStyle = pal.d[d - 1];
-        c.fillRect(x, y, TILE, TILE);
-
-        if (v === ORGANIC) {
-          if (rng() < 0.45) {
-            c.fillStyle = pal.d[Math.max(0, d - 2)];
-            c.beginPath();
-            c.arc(x + rng() * 8, y + rng() * 8, 1.5 + rng() * 2.5, 0, Math.PI * 2);
-            c.fill();
-          }
-          if (rng() < 0.12) {
-            c.strokeStyle = '#b0304a';
-            c.lineWidth = 0.6;
-            c.beginPath();
-            c.moveTo(x, y + rng() * 8);
-            c.quadraticCurveTo(x + 4, y + rng() * 8, x + 8, y + rng() * 8);
-            c.stroke();
-          }
-        } else {
-          if (d >= 2) {
-            c.fillStyle = 'rgba(0,0,0,0.28)';
-            if (cc % 3 === 0) c.fillRect(x, y, 0.5, TILE);
-            if (rr % 2 === 0) c.fillRect(x, y, TILE, 0.5);
-            c.fillStyle = 'rgba(255,255,255,0.07)';
-            if (cc % 3 === 0) c.fillRect(x + 0.5, y, 0.5, TILE);
-            if (rr % 2 === 0) c.fillRect(x, y + 0.5, TILE, 0.5);
-          }
-          if (d === 2 && rng() < 0.1) {
-            c.fillStyle = pal.lo;
-            for (let k = 0; k < 3; k++) c.fillRect(x + 1, y + 2 + k * 2, 6, 1);
-          }
-          if (d === 3 && rng() < 0.06) {
-            c.fillStyle = ['#ff5a3a', '#4affc0', '#ffd24a'][Math.floor(rng() * 3)];
-            c.fillRect(x + 3, y + 3, 2, 2);
-          }
-          if (d === 1 && rng() < 0.25) {
-            c.fillStyle = pal.lo;
-            c.fillRect(x + 2, y + 4, 1, 1);
-            c.fillRect(x + 5, y + 4, 1, 1);
-          }
-        }
-
-        // Exposed faces get bevel highlights.
-        if (open(cc, rr - 1)) {
-          c.fillStyle = pal.hi; c.fillRect(x, y, TILE, 1);
-          c.fillStyle = pal.mid; c.fillRect(x, y + 1, TILE, 1);
-          if (v === ORGANIC && rng() < 0.35) this.spike(c, x + 1 + rng() * 5, y, -1, pal);
-        }
-        if (open(cc, rr + 1)) {
-          c.fillStyle = pal.mid; c.fillRect(x, y + TILE - 2, TILE, 1);
-          c.fillStyle = pal.hi; c.fillRect(x, y + TILE - 1, TILE, 1);
-          if (v === ORGANIC && rng() < 0.35) this.spike(c, x + 1 + rng() * 5, y + TILE, 1, pal);
-        }
-        if (open(cc - 1, rr)) { c.fillStyle = pal.mid; c.fillRect(x, y, 1, TILE); }
-        if (open(cc + 1, rr)) { c.fillStyle = pal.lo; c.fillRect(x + TILE - 1, y, 1, TILE); }
-      }
-    }
-    return cv;
-  }
-
-  spike(c, x, y, dir, pal) {
-    c.fillStyle = pal.mid;
-    c.beginPath();
-    c.moveTo(x, y);
-    c.lineTo(x + 3, y);
-    c.lineTo(x + 1.5, y + dir * 3.5);
-    c.fill();
-  }
-
-  // cam should be device-snapped (see snap() in view.js) so the strips scroll
-  // in whole device pixels. The strip just past the right edge is drawn ahead
-  // of time so a new one never has to be built on the frame it appears.
-  draw(ctx, cam) {
-    if (this.slicesGen !== view.gen) { this.slices.clear(); this.slicesGen = view.gen; }
-    const first = Math.floor(cam / SLICE), last = Math.floor((cam + W) / SLICE) + 1;
-    for (const i of this.slices.keys()) if (i < first || i > last) this.slices.delete(i);
-    for (let i = first; i <= last && i * SLICE < this.cols * TILE; i++) {
-      let cv = this.slices.get(i);
-      if (!cv) this.slices.set(i, (cv = this.renderSlice(i)));
-      const s = view.s;
-      if (i * SLICE < cam + W) ctx.drawImage(cv, cv.ox / s - cam, 0, cv.width / s, cv.height / s);
-    }
   }
 }
