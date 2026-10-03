@@ -143,6 +143,7 @@ export class Sound {
     switch (name) {
       case 'shot':
         this.tone(1800, 500, 0.07, 'square', 0.06);
+        this.thump(1);
         break;
       case 'laser':
         this.tone(900, 1600, 0.1, 'sawtooth', 0.05);
@@ -153,6 +154,7 @@ export class Sound {
         this.tone(220 + l * 40, 60, 0.25 + l * 0.08, 'sawtooth', 0.12);
         this.tone(880, 110, 0.2 + l * 0.05, 'square', 0.06);
         this.noise(0.25 + l * 0.08, 0.15, 4000, 300, 'bandpass', 2);
+        this.thump(1 + l * 0.4);
         break;
       }
       case 'missile':
@@ -187,9 +189,16 @@ export class Sound {
       case 'podLaunch':
         this.tone(200, 900, 0.18, 'sawtooth', 0.08);
         break;
-      case 'podAttach':
-        this.tone(900, 1200, 0.06, 'square', 0.07);
-        this.tone(1200, 1600, 0.06, 'square', 0.07, 0.06);
+      case 'podClamp':
+        // Claws biting onto the hull: a dull knock and a pitched-down clank,
+        // then a tick as they seat (~0.09 s, when the 3D snap completes).
+        this.noise(0.08, 0.22, 1200, 250, 'lowpass', 1);
+        this.tone(400, 150, 0.07, 'square', 0.08);
+        this.tone(3200, 2600, 0.03, 'square', 0.035, 0.09);
+        break;
+      case 'podRelease':
+        // Claws springing open: an airy hiss, quieter than the clamp.
+        this.noise(0.12, 0.1, 3500, 700, 'bandpass', 1.5);
         break;
       case 'shieldHit':
         // A bright zap; it drops low and buzzes when the hit empties the shield.
@@ -217,6 +226,12 @@ export class Sound {
         this.tone(150, 400, 0.35, 'sawtooth', 0.07);
         break;
     }
+  }
+
+  // Recoil under the ship's own shots, matching the 3D recoil's power scale.
+  // Kept quiet and short: normal shots fire constantly.
+  thump(power) {
+    this.tone(120, 50, 0.04 + (power - 1) * 0.03, 'triangle', 0.05 * power);
   }
 
   // Continuous hum while the beam is charging.
