@@ -19,9 +19,6 @@ export function runSmoke(game) {
   window.onerror = (msg, src, line, col, err) => record(err?.stack || `${msg} (${src}:${line}:${col})`);
   window.addEventListener('unhandledrejection', (e) => record(e.reason?.stack || e.reason));
 
-  const flat = new URLSearchParams(location.search).has('flat');
-  if (!flat && !game.r3d) record('3D layer unavailable (WebGL failed to initialize) — the 3D render path was not exercised');
-
   const keys = game.input.keys;
   const hold = (action, on) => { on ? keys.add(CODE[action]) : keys.delete(CODE[action]); };
 
@@ -70,7 +67,16 @@ export function runSmoke(game) {
   }
 
   const errors = [...counts].map(([msg, n]) => (n > 1 ? `${msg} (×${n})` : msg));
-  const result = { ok: counts.size === 0, errors, frames };
+  return report({ ok: counts.size === 0, errors, frames });
+}
+
+// The game needs WebGL and never started; fail with a reason rather than
+// leaving tools/smoke.py to time out looking for a result.
+export function reportNoWebGL() {
+  return report({ ok: false, errors: ['WebGL failed to initialize, so the game never started'], frames: 0 });
+}
+
+function report(result) {
   window.__smoke = result;
   const pre = document.createElement('pre');
   pre.id = 'smoke';

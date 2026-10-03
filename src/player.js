@@ -5,7 +5,7 @@ import { snap } from './view.js';
 import {
   shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, BEAM, DOCK,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
-  SHIELD_MAX, SHIELD_INV, SHIELD_RADIUS, SHIELD_OFFSET,
+  SHIELD_MAX,
 } from './tuning.js';
 
 // ---------------------------------------------------------------------------
@@ -218,53 +218,6 @@ export class PBullet {
 }
 
 // ---------------------------------------------------------------------------
-function poly(ctx, pts, fill) {
-  ctx.fillStyle = fill;
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// The player's fighter – an original design: needle nose, swept tail fins, cyan canopy.
-export function drawShip(ctx, x, y, tilt = 0, flame = true) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(1, 1 - Math.min(0.3, Math.abs(tilt) * 0.25));
-  if (flame) {
-    const len = 5 + Math.random() * 5;
-    ctx.globalCompositeOperation = 'lighter';
-    poly(ctx, [[-15, -3], [-15, 3], [-18 - len, 0]], 'rgba(255,130,40,0.7)');
-    poly(ctx, [[-15, -1.5], [-15, 1.5], [-15 - len, 0]], '#c8ecff');
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  poly(ctx, [[-5, -4], [-10, -10], [-15, -10], [-13, -3]], '#56648a');
-  ctx.fillStyle = '#b8c6e6';
-  ctx.fillRect(-15, -10, 5, 1);
-  poly(ctx, [[-6, 4], [-11, 8], [-15, 8], [-13, 3]], '#3e4a68');
-  ctx.fillStyle = '#343a4a';
-  ctx.fillRect(-16, -3, 4, 6);
-  const hg = ctx.createLinearGradient(0, -4, 0, 4);
-  hg.addColorStop(0, '#f4f7fd');
-  hg.addColorStop(0.5, '#a4b0c8');
-  hg.addColorStop(1, '#566080');
-  poly(ctx, [[-14, -2.5], [-8, -4], [2, -4], [10, -2], [19, 0], [10, 2], [2, 4], [-8, 4], [-14, 2.5]], hg);
-  ctx.fillStyle = '#ff7a2a';
-  ctx.fillRect(-10, 0, 15, 1);
-  ctx.fillStyle = '#2a3148';
-  ctx.fillRect(-8, 3, 12, 1);
-  const cg = ctx.createLinearGradient(0, -5, 0, -1);
-  cg.addColorStop(0, '#d8fcff');
-  cg.addColorStop(1, '#1a6a9a');
-  ctx.fillStyle = cg;
-  ctx.beginPath();
-  ctx.ellipse(4, -3, 5, 2, 0, 0, TAU);
-  ctx.fill();
-  ctx.restore();
-}
-
-// ---------------------------------------------------------------------------
 export class Player {
   constructor(g, x, y) {
     this.g = g;
@@ -360,7 +313,7 @@ export class Player {
     if (shots < 6) {
       g.pbullets.push(new PBullet('shot', this.x + 18, this.y, 8, 0, { trail: null }));
       g.audio.play('shot');
-      g.r3d?.ship.fire(1);
+      g.r3d.ship.fire(1);
     }
     g.pod?.fire();
     for (const b of g.bits) b.fire();
@@ -380,59 +333,10 @@ export class Player {
     }));
     g.fx.add({ k: 'ring', x: this.x + 20, y: this.y, r: 2, vr: 1.5 + L * 0.4, life: 12, max: 12, c: '#aee6ff' });
     g.audio.play('beam', L);
-    g.r3d?.ship.fire(1 + L * 0.4);
+    g.r3d.ship.fire(1 + L * 0.4);
   }
 
-  // 2D fallback only; the 3D layer draws the ship and its shield otherwise.
-  draw(ctx, cam) {
-    if (this.dead) return;
-    if (this.inv > 0 && !this.hitT && (this.t >> 2) % 2) return;
-    const x = snap(this.x) - cam, y = snap(this.y);
-    drawShip(ctx, x, y, this.tilt);
-    if (this.hitT > SHIELD_INV - 8) {
-      // Struck: draw the ship again additively so it flares white.
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      drawShip(ctx, x, y, this.tilt, false);
-      ctx.restore();
-    }
-    this.drawShield(ctx, x + SHIELD_OFFSET, y);
-    this.drawCharge(ctx, cam);
-  }
-
-  // An octagonal outline, shown only after a hit: it fades out over the
-  // invulnerable window, dimmer the weaker the shield, with a flare where it was hit.
-  drawShield(ctx, x, y) {
-    const age = this.lastHit ? this.t - this.lastHit.t : Infinity;
-    const show = Math.max(0, 1 - age / SHIELD_INV);
-    if (show <= 0) return;
-    const k = this.shield / this.maxShield;
-    if (k < 0.3 && Math.random() < 0.3) return;
-    const { x: rx, y: ry } = SHIELD_RADIUS;
-    const flare = Math.max(0, 1 - age / 30);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = `rgba(63,216,203,${show * show * (0.3 + 0.4 * k) + 0.5 * flare})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = (i + 0.5) * (TAU / 8);
-      ctx.lineTo(x + Math.cos(a) * rx, y + Math.sin(a) * ry);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    if (flare > 0) {
-      const a = this.lastHit.angle, spread = 0.4 + (1 - flare) * 1.2;
-      ctx.strokeStyle = `rgba(200,255,250,${flare})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(x, y, rx, ry, 0, a - spread, a + spread);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // Charge orb at the nose; drawn on the 2D layer even when the ship is 3D.
+  // Charge orb at the nose: the one part of the player still drawn in 2D.
   drawCharge(ctx, cam) {
     if (this.dead || this.charge <= 0) return;
     const x = snap(this.x) - cam, y = snap(this.y);
@@ -580,58 +484,6 @@ export class Pod {
         break;
     }
     g.audio.play('laser');
-  }
-
-  draw(ctx, cam) {
-    const x = snap(this.x) - cam, y = snap(this.y);
-    const hue = LASER_HUE[this.color];
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.globalCompositeOperation = 'lighter';
-    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 16);
-    gl.addColorStop(0, hue.glow);
-    gl.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = 0.45 + 0.15 * Math.sin(this.t * 0.2);
-    ctx.fillStyle = gl;
-    ctx.fillRect(-16, -16, 32, 32);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-
-    if (this.attached) {
-      const side = this.state === 'front' ? -1 : 1;
-      ctx.strokeStyle = '#b8c0d0';
-      ctx.lineWidth = 2;
-      for (const s of [-1, 1]) {
-        ctx.beginPath();
-        ctx.moveTo(side * 4, s * 5);
-        ctx.quadraticCurveTo(side * 10, s * 7, side * 11, s * 2);
-        ctx.stroke();
-      }
-    }
-    const cg = ctx.createRadialGradient(-1, -1, 0, 0, 0, 6);
-    cg.addColorStop(0, '#ffffff');
-    cg.addColorStop(0.4, hue.core);
-    cg.addColorStop(1, hue.glow);
-    ctx.fillStyle = cg;
-    ctx.beginPath();
-    ctx.arc(0, 0, 5.5, 0, TAU);
-    ctx.fill();
-
-    const n = this.level + 1;
-    for (let i = 0; i < n; i++) {
-      const a = this.spin + (i * TAU) / n;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#7a8298';
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, a, a + (TAU / n) * 0.6);
-      ctx.stroke();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = '#e4eaf6';
-      ctx.beginPath();
-      ctx.arc(0, 0, 9, a, a + (TAU / n) * 0.6);
-      ctx.stroke();
-    }
-    ctx.restore();
   }
 }
 

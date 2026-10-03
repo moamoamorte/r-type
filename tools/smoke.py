@@ -6,8 +6,8 @@ on the machine, it doesn't install one.
 Boots the game with ?smoke=1 (src/smoke.js), which plays a scripted few
 hundred frames at every checkpoint plus the warning and boss camera
 positions, and fails on any console error or exception — including ones the
-game loop's own try/catch would otherwise swallow. Runs once with the 3D
-layer and once with ?flat=1 (the 2D fallback).
+game loop's own try/catch would otherwise swallow. WebGL runs on SwiftShader,
+so no GPU is needed; if it still can't start, the run fails.
 
 Usage: python3 tools/smoke.py
 Exit code 0 on success, 1 on failure (or if no Chromium/Chrome is found).
@@ -74,9 +74,8 @@ def wait_for_server(port, deadline):
 SMOKE_RE = re.compile(r'<pre id="smoke">(.*?)</pre>', re.DOTALL)
 
 
-def run_smoke(chrome, port, flat):
-    query = "smoke=1" + ("&flat=1" if flat else "")
-    url = f"http://localhost:{port}/index.html?{query}"
+def run_smoke(chrome, port):
+    url = f"http://localhost:{port}/index.html?smoke=1"
     args = [
         chrome,
         "--headless=new",
@@ -124,19 +123,15 @@ def main():
             print("smoke: dev server never came up")
             return 1
 
-        ok = True
-        for flat in (False, True):
-            label = "flat (2D)" if flat else "3D"
-            result = run_smoke(chrome, port, flat)
-            frames = result.get("frames", "?")
-            if result.get("ok"):
-                print(f"smoke: {label} pass ({frames} frames, no errors)")
-            else:
-                ok = False
-                print(f"smoke: {label} FAIL ({frames} frames)")
-                for err in result.get("errors", []):
-                    print(f"  - {err}")
-        return 0 if ok else 1
+        result = run_smoke(chrome, port)
+        frames = result.get("frames", "?")
+        if result.get("ok"):
+            print(f"smoke: pass ({frames} frames, no errors)")
+            return 0
+        print(f"smoke: FAIL ({frames} frames)")
+        for err in result.get("errors", []):
+            print(f"  - {err}")
+        return 1
     finally:
         server.terminate()
         try:
