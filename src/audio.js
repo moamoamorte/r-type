@@ -191,6 +191,14 @@ export class Sound {
         this.tone(900, 1200, 0.06, 'square', 0.07);
         this.tone(1200, 1600, 0.06, 'square', 0.07, 0.06);
         break;
+      case 'shieldHit':
+        // A bright zap; it drops low and buzzes when the hit empties the shield.
+        this.tone(arg ? 600 : 1600, arg ? 70 : 500, 0.16 + arg * 0.12, arg ? 'sawtooth' : 'square', 0.09);
+        this.noise(0.12, 0.16, 7000, 2000, 'highpass', 1);
+        break;
+      case 'shieldUp':
+        [0, 7, 12].forEach((n, i) => this.tone(659 * Math.pow(2, n / 12), 880 * Math.pow(2, n / 12), 0.1, 'triangle', 0.09, i * 0.06));
+        break;
       case 'playerDie':
         this.noise(1.4, 0.5, 3000, 60);
         this.tone(800, 40, 1.2, 'sawtooth', 0.15);

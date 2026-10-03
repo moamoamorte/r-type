@@ -11,6 +11,7 @@ import { createEnemy, EBullet } from './enemies.js';
 import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
 import { TouchControls, toggleFullscreen } from './touch.js';
+import { SHIELD_DAMAGE, SHIELD_INV, SHIELD_PICKUP } from './tuning.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -94,8 +95,10 @@ class Game {
 
   startStage(i, cam) {
     this.setStage(i);
-    const start = this.stage.level.CHECKPOINTS[0];
-    this.cpIndex = 0;
+    const { CHECKPOINTS } = this.stage.level;
+    const start = CHECKPOINTS[0];
+    // The checkpoint already passed, so a warp doesn't count as reaching one.
+    this.cpIndex = Math.max(0, CHECKPOINTS.findLastIndex((x) => x <= (cam ?? start)));
     this.bossDone = false;
     this.startAt(cam ?? start, (cam ?? start) === start);
   }
@@ -141,8 +144,10 @@ class Game {
   }
 
   // Grants power-ups directly: no pickup, score or popup. The pod starts docked.
-  applyLoadout({ pod, speed = 0, missile = false, bits = 0 }) {
+  // shield (a percentage) is debug-only; a new stage or life always starts full.
+  applyLoadout({ pod, speed = 0, missile = false, bits = 0, shield }) {
     const p = this.player;
+    if (shield !== undefined) p.shield = clamp(shield, 0, p.maxShield);
     p.speedLv = clamp(speed, 0, 4);
     p.missile = missile;
     this.pod = null;
@@ -176,6 +181,31 @@ class Game {
     this.paused = p;
     if (p) this.audio.chargeStop();
     if (this.player) { this.player.charge = 0; }
+  }
+
+  // Anything that isn't instantly fatal goes through here. The shield soaks the
+  // hit and opens a short invulnerable window, so one bullet spread costs one
+  // hit; a hit on an empty shield destroys the ship. angle points from the ship
+  // toward the impact (screen space) and drives the bubble's ripple.
+  hitPlayer(kind, angle = 0) {
+    const p = this.player;
+    if (p.dead || p.inv > 0) return;
+    if (p.shield <= 0) { this.killPlayer(); return; }
+    p.shield = Math.max(0, p.shield - SHIELD_DAMAGE[kind]);
+    p.inv = p.hitT = SHIELD_INV;
+    p.lastHit = { angle, t: p.t };
+    this.fx.sparks(p.x + Math.cos(angle) * 14, p.y + Math.sin(angle) * 10, '#9ffff0', 8, 2.5);
+    this.fx.shake = Math.max(this.fx.shake, 2);
+    this.r3d?.ship.hit();
+    this.audio.play('shieldHit', p.shield <= 0 ? 1 : 0);
+  }
+
+  refillShield() {
+    const p = this.player;
+    if (p.dead || p.shield >= p.maxShield) return;
+    p.shield = p.maxShield;
+    this.popup(p.x, p.y - 14, 'SHIELD 100%', '#6af0e0');
+    this.audio.play('shieldUp');
   }
 
   killPlayer() {
@@ -286,6 +316,10 @@ class Game {
         if (this.bits.length < 2) this.bits.push(new Bit(this, this.bits.length ? 1 : -1));
         label = 'BIT';
         break;
+      case 'shield':
+        p.shield = Math.min(p.maxShield, p.shield + SHIELD_PICKUP);
+        label = `SHIELD ${p.shield}%`;
+        break;
     }
     this.addScore(100);
     this.popup(item.x, item.y - 10, label, '#ffe070');
@@ -339,6 +373,11 @@ class Game {
 
     while (this.spawnIdx < this.spawns.length && this.spawns[this.spawnIdx].x <= this.cam)
       this.spawn(this.spawns[this.spawnIdx++]);
+    // Passing a checkpoint tops the shield up.
+    while (this.cpIndex + 1 < CHECKPOINTS.length && this.cam >= CHECKPOINTS[this.cpIndex + 1]) {
+      this.cpIndex++;
+      this.refillShield();
+    }
     if (!this.boss && !this.bossDone && this.cam >= BOSS_CAM) {
       this.boss = new this.stage.Boss(this);
       this.enemies.push(this.boss);
@@ -435,12 +474,19 @@ class Game {
 
     if (p.inv > 0) return;
     for (const b of this.ebullets) {
-      if (!b.dead && circleHit(p.hx, p.hy, 2.5, b.x, b.y, b.r)) { b.dead = true; this.killPlayer(); return; }
+      if (!b.dead && circleHit(p.hx, p.hy, 2.5, b.x, b.y, b.r)) {
+        b.dead = true;
+        this.hitPlayer(b.big ? 'bigBullet' : 'bullet', angleTo(p.hx, p.hy, b.x, b.y));
+        return;
+      }
     }
     for (const e of this.enemies) {
       if (e.dead || (!e.active && e !== this.boss)) continue;
       for (const part of e.parts || [e]) {
-        if (circleHit(p.hx, p.hy, 4, part.x, part.y, part.r * 0.85)) { this.killPlayer(); return; }
+        if (circleHit(p.hx, p.hy, 4, part.x, part.y, part.r * 0.85)) {
+          this.hitPlayer(e === this.boss ? 'boss' : 'enemy', angleTo(p.hx, p.hy, part.x, part.y));
+          return;
+        }
       }
     }
   }
@@ -532,8 +578,8 @@ class Game {
       ctx.restore();
     }
     // Beam charge meter
-    drawText(ctx, 'BEAM', 88, y + 5, '#6ab0ff');
-    const bx = 116, bw = 104;
+    drawText(ctx, 'BEAM', 80, y + 5, '#6ab0ff');
+    const bx = 106, bw = 64;
     ctx.fillStyle = '#1a2a5a';
     ctx.fillRect(bx, y + 4, bw, 8);
     ctx.fillStyle = '#000';
@@ -547,8 +593,34 @@ class Game {
       ctx.fillStyle = c >= 1 && this.t % 8 < 4 ? '#fff' : g;
       ctx.fillRect(bx + 1, y + 5, (bw - 2) * c, 6);
     }
-    drawText(ctx, '1P ' + pad(this.score), 234, y + 5, '#fff');
-    drawText(ctx, 'HI ' + pad(this.hi), 312, y + 5, '#ffd070');
+    this.drawShieldMeter(178, y);
+    drawText(ctx, '1P ' + pad(this.score), 246, y + 5, '#fff');
+    drawText(ctx, 'HI ' + pad(this.hi), 318, y + 5, '#ffd070');
+  }
+
+  // A shield glyph and ten 10% cells; the last cell fills partway.
+  drawShieldMeter(x, y) {
+    const p = this.player;
+    const k = p ? p.shield / p.maxShield : 1;
+    const blink = this.t % 16 < 8;
+    const col = k > 0.5 ? '#3fd8cb' : k > 0.25 ? '#ffc040' : '#ff4a4a';
+    ctx.fillStyle = k > 0 || blink ? col : '#5a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(x, y + 4); ctx.lineTo(x + 7, y + 4); ctx.lineTo(x + 7, y + 8);
+    ctx.lineTo(x + 3.5, y + 12); ctx.lineTo(x, y + 8);
+    ctx.fill();
+    const sx = x + 10, cells = 10, cw = 4;
+    ctx.fillStyle = k <= 0.25 && blink ? '#8a1a20' : '#124040';
+    ctx.fillRect(sx, y + 4, cells * (cw + 1) + 1, 8);
+    for (let i = 0; i < cells; i++) {
+      const cx = sx + 1 + i * (cw + 1);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(cx, y + 5, cw, 6);
+      const fill = clamp(k * cells - i, 0, 1);
+      if (fill <= 0) continue;
+      ctx.fillStyle = col;
+      ctx.fillRect(cx, y + 5, Math.max(1, Math.round(cw * fill)), 6);
+    }
   }
 
   drawOverlays() {
@@ -646,6 +718,7 @@ function parsePower(str) {
     else if (k === 'speed') kit.speed = +a || 1;
     else if (k === 'missile') kit.missile = true;
     else if (k === 'bits' || k === 'bit') kit.bits = +a || 1;
+    else if (k === 'shield') kit.shield = +a || 0;
     else if (k) console.warn(`power: unknown power-up "${tok}"`);
   }
   return kit;
