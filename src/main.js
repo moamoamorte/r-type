@@ -665,7 +665,12 @@ function readWarp() {
 
 // ---- boot -------------------------------------------------------------------
 function fit() {
-  const s = Math.min(innerWidth / W, innerHeight / SCREEN_H);
+  // Subtract body's safe-area padding (style.css) so the notch and home
+  // indicator never overlap the play-field when running edge to edge.
+  const pad = getComputedStyle(document.body);
+  const w = innerWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+  const h = innerHeight - parseFloat(pad.paddingTop) - parseFloat(pad.paddingBottom);
+  const s = Math.min(w / W, h / SCREEN_H);
   const k = s >= 2 ? Math.floor(s) : s;
   canvas.style.width = `${W * k}px`;
   canvas.style.height = `${SCREEN_H * k}px`;

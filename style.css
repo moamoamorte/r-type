@@ -6,10 +6,16 @@ html, body {
   touch-action: none;
   overscroll-behavior: none;
 }
+/* viewport-fit=cover lets the page run under the notch / Dynamic Island and
+   home indicator; the padding keeps the canvas (and the touch controls laid
+   over it) clear of them. fit() in main.js sizes to this padded box. */
 body {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 canvas {
   display: block;
@@ -155,3 +161,26 @@ canvas {
    of source order, so this can't be undone by reordering the markup. */
 #touchStart { inset: 0; display: none; z-index: 0; }
 #touchStart.on { display: block; }
+
+/* "Add to Home Screen" explainer the FS button shows on iPhone, which has no
+   element fullscreen (see #56 and src/touch.js). Above every touch control. */
+#homeScreenHint {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  border: 0;
+  background: #000;
+  color: #9ab0d0;
+  font: 13px/1.6 monospace;
+  text-align: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#homeScreenHint b { color: #cfe4ff; }
+#homeScreenHint i { font-style: normal; opacity: 0.6; }
