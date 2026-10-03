@@ -9,12 +9,13 @@ import { createShield } from './models/shield.js';
 import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV } from './tuning.js';
 
 export class Render3D {
-  // Returns null when WebGL isn't available, so the game can fall back to 2D.
+  // Returns null when WebGL isn't available; the game then shows a
+  // "WebGL required" screen instead of starting.
   static create(canvas) {
     try {
       return new Render3D(canvas);
     } catch (err) {
-      console.warn('3D layer unavailable, using 2D sprites:', err);
+      console.warn('WebGL unavailable:', err);
       return null;
     }
   }

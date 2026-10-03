@@ -14,9 +14,9 @@ src/            game + harness modules
 
 | File | Lines | Contents |
 | --- | --- | --- |
-| `src/main.js` | 693 | Game loop, state machine, spawning, collision, HUD, overlays, debug warp |
+| `src/main.js` | 842 | Game loop, state machine, spawning, collision, HUD, overlays, debug warp, "WebGL required" screen |
 | `src/stages.js` | 9 | Stage registry: id, name, level module, boss class |
-| `src/player.js` | 610 | Player, pod, bits, every player projectile, 2D ship drawing |
+| `src/player.js` | 529 | Player, pod, bits, every player projectile |
 | `src/tuning.js` | 47 | Handling constants shared by the game and the preview sandbox |
 | `src/enemies.js` | 624 | Enemy base + 8 enemy types, enemy bullets |
 | `src/boss.js` | 406 | Stage 1 boss ("Oculus Bloom") |
@@ -30,7 +30,7 @@ src/            game + harness modules
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
 | `src/view.js` | 30 | Display scale (logical → device pixels), `snap()`, scaled offscreen canvases |
-| `src/render3d.js` | 132 | 3D layer: draws ship, pod and shield over the 2D playfield |
+| `src/render3d.js` | 195 | 3D layer: draws ship, pod and shield over the 2D playfield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
 | `src/models/shield.js` | 91 | Faceted shield bubble with an impact-ripple shader |
@@ -86,14 +86,14 @@ Enemies: Drifter, Dart, Carrier (drops power-ups, including shield cells), Turre
 
 **Resolution.** `fit()` in `main.js` sizes the canvas to the largest 384×240 box that fits the window (fractional, aspect preserved) and sets its backing store to that size × `devicePixelRatio`, capped at `MAX_SCALE` = 6. That multiplier is `view.s` (`view.js`). `draw()` starts with `setTransform(s, …)`, so every draw call still works in logical pixels. Anything pre-rendered (font glyphs, nebula/girders/flesh, boss body, terrain strips, the HUD ship icon) is built at `view.s` through `scaledCanvas()` and rebuilt when `view.gen` changes, then blitted 1:1. `fit()` runs on resize, fullscreen change and pixel-ratio change; everything else picks the new scale up on its next draw.
 
-The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship, pod and shield bubble. The bubble reads `player.shield` and `player.lastHit`; in `?flat=1` the player draws a 2D octagon outline instead.
+The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship, pod and shield bubble. The bubble reads `player.shield` and `player.lastHit`. The beam's charge orb is the one part of the player still drawn on the 2D canvas.
 
 `render3d.js`:
 
 - Orthographic camera mapping **game pixels 1:1** to world units: `(0, W, 0, -H)`. An entity at screen (x, y) is placed at world (x, −y).
 - Internal resolution is the display scale (`setScale(view.s)`), so the 3D models are exactly as sharp as the 2D canvas under them. See DECISIONS §15.
 - The ship model is scaled 0.78 and the pod 0.72 (`SHIP_SCALE`, `POD_SCALE` in `tuning.js`), which is what makes them the right size on a 384px-wide field.
-- `Render3D.create()` returns `null` when WebGL is unavailable, and the game falls back to the original 2D sprites. `?flat=1` forces that path.
+- **WebGL is required.** `Render3D.create()` returns `null` when WebGL is unavailable; the boot code in `main.js` then shows a "WebGL required" screen on the 2D canvas and never creates the `Game`, so game code can assume `game.r3d` exists. See DECISIONS §21.
 - The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. The ship model uses only dip's magnitude, so the nose drops whichever way the ship slides. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.
 - `renderTitle(t)` poses the ship larger and turning for the title screen; `render()` resets scale and pose.
 

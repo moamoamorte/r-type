@@ -6,7 +6,7 @@ import { drawText } from './font.js';
 import { FX } from './fx.js';
 import { Background } from './background.js';
 import { STAGES } from './stages.js';
-import { Player, Pod, Bit, drawShip } from './player.js';
+import { Player, Pod, Bit } from './player.js';
 import { createEnemy, EBullet } from './enemies.js';
 import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
@@ -55,16 +55,13 @@ function meterWell(x, y, w, h, color) {
 }
 
 class Game {
-  constructor() {
+  constructor(r3d) {
+    this.r3d = r3d;
     this.input = new Input();
     this.audio = new Sound();
     this.input.onFirstInput = () => this.audio.init();
     this.setStage(0);
     this.bg = new Background();
-    // ?flat=1 forces the original 2D sprites (handy for comparing the two).
-    const flat2d = new URLSearchParams(location.search).has('flat');
-    this.r3d = flat2d ? null : Render3D.create(document.getElementById('screen3d'));
-    if (flat2d) document.getElementById('screen3d').style.display = 'none';
     this.fx = new FX();
     this.touch = new TouchControls(this);
     this.hi = loadHi();
@@ -216,7 +213,7 @@ class Game {
     p.lastHit = { angle, t: p.t };
     this.fx.sparks(p.x + Math.cos(angle) * 14, p.y + Math.sin(angle) * 10, '#9ffff0', 8, 2.5);
     this.fx.shake = Math.max(this.fx.shake, 2);
-    this.r3d?.ship.hit();
+    this.r3d.ship.hit();
     this.audio.play('shieldHit', p.shield <= 0 ? 1 : 0);
   }
 
@@ -545,7 +542,7 @@ class Game {
     ctx.setTransform(view.s, 0, 0, view.s, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    if (this.r3d && this.r3d.scale !== view.s) this.r3d.setScale(view.s);
+    if (this.r3d.scale !== view.s) this.r3d.setScale(view.s);
     if (this.state === 'title') this.drawTitle();
     else this.drawPlay();
     this.touch.render();
@@ -570,12 +567,7 @@ class Game {
     for (const it of this.items) it.draw(ctx, camD);
     for (const b of this.pbullets) b.draw(ctx, camD);
     for (const b of this.bits) b.draw(ctx, camD);
-    const flat = !this.r3d;
-    if (this.state !== 'clear' || this.player.x - cam < W + 30) {
-      if (flat) this.player.draw(ctx, camD);
-      else this.player.drawCharge(ctx, camD);
-    }
-    if (flat) this.pod?.draw(ctx, camD);
+    if (this.state !== 'clear' || this.player.x - cam < W + 30) this.player.drawCharge(ctx, camD);
     for (const b of this.ebullets) b.draw(ctx, camD);
     this.fx.draw(ctx, cam);
     for (const pu of this.popups) drawText(ctx, pu.text, pu.x - cam, pu.y, pu.color, { align: 'center' });
@@ -584,7 +576,7 @@ class Game {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
-    this.r3d?.render(this);
+    this.r3d.render(this);
 
     this.drawHUD();
     this.drawOverlays();
@@ -596,18 +588,10 @@ class Game {
     ctx.fillRect(0, y, W, HUD_H);
     ctx.fillStyle = '#2a3866';
     ctx.fillRect(0, y, W, hair());
-    // Reserve ships: a snapshot of the 3D model, or the 2D sprite without WebGL.
-    const icon = this.r3d?.shipIcon(Math.round(12 * view.s), Math.round(8 * view.s));
+    // Reserve ships: a snapshot of the 3D model.
+    const icon = this.r3d.shipIcon(Math.round(12 * view.s), Math.round(8 * view.s));
     for (let i = 0; i < Math.min(5, this.lives - 1); i++) {
-      if (icon) {
-        ctx.drawImage(icon, 4 + i * 14, y + 4, icon.width / view.s, icon.height / view.s);
-        continue;
-      }
-      ctx.save();
-      ctx.translate(10 + i * 14, y + 8);
-      ctx.scale(0.4, 0.4);
-      drawShip(ctx, 0, 0, 0, false);
-      ctx.restore();
+      ctx.drawImage(icon, 4 + i * 14, y + 4, icon.width / view.s, icon.height / view.s);
     }
     // Beam charge meter
     drawText(ctx, 'BEAM', 80, y + 5, '#6ab0ff');
@@ -721,15 +705,7 @@ class Game {
     drawText(ctx, 'X-76', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
     drawText(ctx, `STAGE ${STAGES[0].id} - ${STAGES[0].name}`, W / 2, 60, '#ffd070', { align: 'center' });
 
-    if (this.r3d) {
-      this.r3d.renderTitle(this.t);
-    } else {
-      ctx.save();
-      ctx.translate(W / 2, 96 + Math.sin(this.t * 0.05) * 3);
-      ctx.scale(2, 2);
-      drawShip(ctx, 0, 0, 0, true);
-      ctx.restore();
-    }
+    this.r3d.renderTitle(this.t);
 
     const lines = [
       ['ARROWS / WASD', 'MOVE'],
@@ -810,13 +786,28 @@ addEventListener('fullscreenchange', fit);
 })();
 fit();
 
-const game = new Game();
-window.game = game; // handy for debugging from the console
-const warp = readWarp();
-if (warp) game.warp(warp);
+// Without WebGL there's no game to show (DECISIONS §21), so say why instead.
+function showWebGLRequired() {
+  document.getElementById('screen3d').style.display = 'none';
+  const draw = () => {
+    ctx.setTransform(view.s, 0, 0, view.s, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, SCREEN_H);
+    drawText(ctx, 'X-76', W / 2, 40, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
+    drawText(ctx, 'WEBGL REQUIRED', W / 2, 100, '#ff5a5a', { align: 'center', scale: 2, shadow: '#400010' });
+    drawText(ctx, 'THIS BROWSER COULD NOT START WEBGL.', W / 2, 136, '#9ab0d0', { align: 'center' });
+    drawText(ctx, 'TURN ON HARDWARE ACCELERATION', W / 2, 152, '#9ab0d0', { align: 'center' });
+    drawText(ctx, 'OR TRY ANOTHER BROWSER.', W / 2, 164, '#9ab0d0', { align: 'center' });
+  };
+  draw();
+  // fit() clears the canvas when it resizes it; these run after its listeners.
+  addEventListener('resize', draw);
+  addEventListener('fullscreenchange', draw);
+}
 
 const STEP = 1000 / 60;
 let last = performance.now(), acc = 0;
+let game;
 function frame(now) {
   requestAnimationFrame(frame);
   acc += Math.min(100, now - last);
@@ -834,11 +825,18 @@ function frame(now) {
   }
 }
 
-// ?smoke=1: run headlessly instead of on rAF, see tools/smoke.py. A top-level
-// await here holds the page's load event until it's done.
-if (new URLSearchParams(location.search).has('smoke')) {
-  const { runSmoke } = await import('./smoke.js');
-  runSmoke(game);
+const r3d = Render3D.create(document.getElementById('screen3d'));
+const smoke = new URLSearchParams(location.search).has('smoke');
+if (!r3d) {
+  showWebGLRequired();
+  if (smoke) (await import('./smoke.js')).reportNoWebGL();
 } else {
-  requestAnimationFrame(frame);
+  game = new Game(r3d);
+  window.game = game; // handy for debugging from the console
+  const warp = readWarp();
+  if (warp) game.warp(warp);
+  // ?smoke=1: run headlessly instead of on rAF, see tools/smoke.py. A
+  // top-level await here holds the page's load event until it's done.
+  if (smoke) (await import('./smoke.js')).runSmoke(game);
+  else requestAnimationFrame(frame);
 }
