@@ -22,7 +22,7 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 **When delivering a PR, also run the game locally from the checkout you changed** and put clickable `http://localhost:<port>/...` links in the chat reply (same warp links as the PR), so the owner can see the change immediately without waiting for the Pages deploy. Check that the server is actually serving *this* checkout: an old `serve.py` from another worktree may already hold 8765 (`lsof -iTCP:8765 -sTCP:LISTEN`, then check its cwd). If so, run on another port (`python3 serve.py 8766`) rather than killing it.
 
-- Game: `/index.html` (add `?flat=1` to force the old 2D ship and bypass WebGL)
+- Game: `/index.html`. It needs WebGL; without it the page shows a "WebGL required" screen (DECISIONS §21).
 - Model harness: `/preview.html` — fly the ship, play animations, inspect models
 
 ## Hard constraints
@@ -42,7 +42,7 @@ ES modules need HTTP; opening `index.html` from disk will not work. `serve.py` a
 
 ## Testing
 
-`python3 tools/smoke.py` is a headless smoke test: it boots the game at every checkpoint plus the boss, fakes input for a few hundred frames at each, and fails on any console error or exception (3D and `?flat=1` both). Run it after changes that touch the game loop, spawning or collision. It needs a Chromium/Chrome binary already on the machine (set `CHROME=/path/to/binary` if it can't find one) — no dependencies to install.
+`python3 tools/smoke.py` is a headless smoke test: it boots the game at every checkpoint plus the boss, fakes input for a few hundred frames at each, and fails on any console error or exception, or if WebGL can't start. Run it after changes that touch the game loop, spawning or collision. It needs a Chromium/Chrome binary already on the machine (set `CHROME=/path/to/binary` if it can't find one) — no dependencies to install.
 
 Beyond that there is no automated test suite. Verify in the browser:
 

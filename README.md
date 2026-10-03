@@ -61,7 +61,7 @@ The player ship and pod are real 3D models rendered with Three.js (vendored in `
 
 - The models are built in code, so there are no asset files.
 - Shading is cel-style with ink outlines, to match a hand-drawn anime look.
-- If WebGL is unavailable the game falls back to the original 2D sprites. Add `?flat=1` to the URL to force that.
+- The game needs WebGL. Without it the page explains that instead of starting.
 
 ## Model preview harness
 

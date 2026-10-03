@@ -40,9 +40,9 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Consequence:** a transparent WebGL canvas is stacked over the 2D canvas, so 3D objects always draw on top of 2D ones. Fine while only the player and pod are 3D; it will need revisiting when terrain and enemies convert (an enemy behind terrain would currently draw in front of it).
 
-## 6. Keep the 2D sprites as a fallback
+## 6. Keep the 2D sprites as a fallback (superseded by §21)
 
-**Decision:** `Render3D.create()` returns `null` on failure and the game draws the old sprites; `?flat=1` forces it.
+**Decision:** `Render3D.create()` returned `null` on failure and the game drew the old sprites; `?flat=1` forced it. Since [#26](https://github.com/moamoamorte/x-76/issues/26) a failure shows a "WebGL required" screen instead.
 
 **Why:** WebGL can be unavailable or blocked, and having a working comparison path made the 3D work much easier to evaluate.
 
@@ -72,7 +72,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** the pod read as floating in front of the ship. The first fix only moved the drawing ~7px back and left gameplay alone, so the pod blocked bullets ahead of where it appeared. That offset was folded into gameplay in [#10](https://github.com/moamoamorte/x-76/issues/10).
 
-**Consequence:** the docked shield sits ~7px closer to the ship than it originally did, and in the 2D fallback the pod now overlaps the sprite's nose and tail.
+**Consequence:** the docked shield sits ~7px closer to the ship than it originally did.
 
 ## 11. Checkpoints wipe power-ups
 
@@ -147,3 +147,11 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Why:** owner's answer on [#62](https://github.com/moamoamorte/x-76/issues/62), chosen over keeping the block font. At display resolution the blocks read as 4–6px squares next to the 3D ship; strokes stay clean at any scale and the chamfers match the models' angular style.
 
 **Consequence:** a new glyph is a string of points in `GLYPHS` (`src/font.js`); `*x,y` is a square dot. Unknown characters fall back to `?`.
+
+## 21. WebGL is required; the 2D fallback is gone
+
+**Decision:** when WebGL can't start, the page shows a "WebGL required" screen and the game doesn't boot. The 2D ship and pod sprites, the 2D shield outline, the `?flat=1` switch and the smoke test's flat pass are deleted. Enemies, the boss, effects and terrain keep their 2D drawing until each is converted (#5, #7–#9), then lose it.
+
+**Why:** owner's choice on [#26](https://github.com/moamoamorte/x-76/issues/26), option 3 of three (keep a full fallback, keep a minimal one, drop it). Every 3D conversion would otherwise have had to keep a matching 2D path alive, roughly doubling the art work, for the rare browser without WebGL.
+
+**Consequence:** game code can call `game.r3d` without null checks. The smoke test runs once, on SwiftShader, and fails outright if WebGL can't start. The side-by-side 2D/3D comparison that §6 valued is gone; the preview harness remains the place to inspect models.
