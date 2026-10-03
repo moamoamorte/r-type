@@ -120,6 +120,7 @@ export function buildSpawns() {
   mount(2000, 'bulwark');
   ev(2050, 'dart', { y: 60 });
   ev(2060, 'dart', { y: 160 });
+  ev(2140, 'carrier', { y: 112, drop: 'shield' });
   mount(2100, 'turret', { mount: 'floor' });
   mount(2180, 'turret', { mount: 'ceil' });
   mount(2250, 'turret', { mount: 'floor' });
@@ -160,6 +161,7 @@ export function buildSpawns() {
   ev(3820, 'dart', { y: 164 });
   mount(3888, 'turret', { mount: 'ceil', from: 186 });
   mount(3950, 'hopper');
+  ev(3960, 'carrier', { y: 112, drop: 'shield' });
   wave(4000, 6, { y: 60 });
   mount(4064, 'turret', { mount: 'floor', from: 60 });
   ev(4150, 'carrier', { y: 112, drop: 'crystal' });

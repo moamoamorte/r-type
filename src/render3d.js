@@ -4,7 +4,8 @@ import * as THREE from '../vendor/three.module.js';
 import { W, H } from './util.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
-import { SHIP_SCALE, POD_SCALE } from './tuning.js';
+import { createShield } from './models/shield.js';
+import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET } from './tuning.js';
 
 export class Render3D {
   // Returns null when WebGL isn't available, so the game can fall back to 2D.
@@ -39,7 +40,8 @@ export class Render3D {
     this.pod = createPod();
     this.ship.group.scale.setScalar(SHIP_SCALE);
     this.pod.group.scale.setScalar(POD_SCALE);
-    this.scene.add(this.ship.group, this.pod.group);
+    this.shield = createShield({ rx: SHIELD_RADIUS.x, ry: SHIELD_RADIUS.y });
+    this.scene.add(this.ship.group, this.pod.group, this.shield.group);
     this.hideAll();
   }
 
@@ -52,6 +54,7 @@ export class Render3D {
   hideAll() {
     this.ship.group.visible = false;
     this.pod.group.visible = false;
+    this.shield.group.visible = false;
   }
 
   clear() {
@@ -62,6 +65,7 @@ export class Render3D {
   // Title screen: the ship hangs centre stage, turning slowly.
   renderTitle(t) {
     this.pod.group.visible = false;
+    this.shield.group.visible = false;
     const s = this.ship.group;
     s.visible = true;
     s.scale.setScalar(2.0);
@@ -79,7 +83,8 @@ export class Render3D {
     const p = game.player;
     const cam = game.cam;
 
-    const show = p && !p.dead && !(p.inv > 0 && (p.t >> 2) % 2);
+    // Respawn invulnerability blinks; the shorter window after a shield hit doesn't.
+    const show = p && !p.dead && !(p.inv > 0 && !p.hitT && (p.t >> 2) % 2);
     this.ship.group.visible = !!show;
     if (p && show) {
       this.ship.group.scale.setScalar(SHIP_SCALE);
@@ -89,6 +94,16 @@ export class Render3D {
         bank: -p.tilt,
         dip: p.turn || 0,
         throttle: p.entering ? 1 : 0.85 + Math.random() * 0.15,
+      });
+    }
+
+    this.shield.group.visible = !!show;
+    if (p && show) {
+      this.shield.group.position.set(p.x - cam + SHIELD_OFFSET, -p.y, 0);
+      this.shield.update(dt, {
+        strength: p.shield / p.maxShield,
+        hitAngle: p.lastHit?.angle,
+        hitAge: p.lastHit ? (p.t - p.lastHit.t) / 60 : 99,
       });
     }
 

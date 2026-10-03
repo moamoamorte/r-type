@@ -61,6 +61,30 @@ export class PowerItem {
       ctx.fill();
       ctx.fillStyle = hue.core;
       ctx.fillRect(-1, -5, 2, 4);
+    } else if (this.type === 'shield') {
+      // A hexagonal cell with a plus: reads as "repair", unlike the round letter pods.
+      const hex = (r) => {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) ctx.lineTo(Math.cos(i * TAU / 6) * r, Math.sin(i * TAU / 6) * r);
+        ctx.closePath();
+      };
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(63,216,203,${0.25 + Math.sin(this.t * 0.2) * 0.1})`;
+      hex(11);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#0e4a4a';
+      hex(8);
+      ctx.fill();
+      ctx.strokeStyle = '#6af0e0';
+      ctx.lineWidth = 1.5;
+      ctx.rotate(this.t * 0.03);
+      hex(7);
+      ctx.stroke();
+      ctx.rotate(-this.t * 0.03);
+      ctx.fillStyle = '#e8fffb';
+      ctx.fillRect(-1, -4, 2, 8);
+      ctx.fillRect(-4, -1, 8, 2);
     } else {
       const cfg = {
         speed: ['#1c4a9a', '#6ab0ff', 'S'],

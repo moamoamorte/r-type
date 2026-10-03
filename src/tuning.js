@@ -45,3 +45,14 @@ export const POD_GRAB_DIST = 18;        // centre distance at which the ship gra
 // game distances by SHIP_SCALE.
 export const SHIP_SCALE = 0.78;
 export const POD_SCALE = 0.72;
+
+// --- shield -----------------------------------------------------------------
+// Percent of a full shield each kind of hit costs. A hit landing on an empty
+// shield destroys the ship. Placeholder numbers until stage 1 is tuned (#12).
+export const SHIELD_MAX = 100;
+export const SHIELD_DAMAGE = { bullet: 20, bigBullet: 30, enemy: 30, boss: 40, terrain: 35 };
+export const SHIELD_PICKUP = 50;
+export const SHIELD_INV = 45;           // invulnerable frames after a shield hit
+// Bubble half-extents around the ship, in game pixels; centred SHIELD_OFFSET ahead of it.
+export const SHIELD_RADIUS = { x: 25, y: 14 };
+export const SHIELD_OFFSET = 2;

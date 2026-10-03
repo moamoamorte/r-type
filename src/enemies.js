@@ -176,7 +176,7 @@ class Dart extends Enemy {
   }
 }
 
-const DROP_COLOR = { crystal: '#ff6a3a', speed: '#6ab0ff', missile: '#6aff9a', bit: '#d08aff' };
+const DROP_COLOR = { crystal: '#ff6a3a', speed: '#6ab0ff', missile: '#6aff9a', bit: '#d08aff', shield: '#6af0e0' };
 
 // Porter: slow, armoured cargo walker. Destroy it to release a power-up.
 class Carrier extends Enemy {

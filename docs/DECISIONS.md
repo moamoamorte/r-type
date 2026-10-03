@@ -127,3 +127,11 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Why:** iPhone Safari has no element Fullscreen API on any iOS version; iPadOS 16.4 added it for iPad only. Four PRs (#49, #51, #53, #54) tuned the event wiring before this was spotted, and none of them could have worked on iPhone. Tracked in [#56](https://github.com/moamoamorte/x-76/issues/56).
 
 **Consequence:** with `viewport-fit=cover` the page runs under the notch and home indicator, so `body` is padded by the safe-area insets and `fit()` sizes the canvas to the padded box. Anything new positioned against the viewport rather than inside `#wrap` has to respect those insets itself. There's no Home Screen icon yet, so iOS uses a page snapshot.
+
+## 19. A percentage shield instead of one-hit deaths
+
+**Decision:** the ship carries a shield from 0 to 100%. Every hit costs a share of it (`SHIELD_DAMAGE` in `tuning.js`: bullets, big bullets, enemy contact, boss contact and terrain each have their own cost). A hit landing on an empty shield destroys the ship. The shield does not regenerate over time; it refills on reaching a checkpoint and on every new life, and a shield cell dropped by carriers restores `SHIELD_PICKUP`. Terrain and boss contact cost shield like anything else, and the ship bounces off walls; only being pinned against a wall by the scroll still kills outright.
+
+**Why:** owner's answers on [#14](https://github.com/moamoamorte/x-76/issues/14). A percentage rather than a few fixed points lets different hits cost different amounts.
+
+**Consequence:** stage 1 is much easier than it was tuned for. The damage numbers are placeholders; enemy placement, bullet volume and the costs themselves are rebalanced together in [#12](https://github.com/moamoamorte/x-76/issues/12). Respawn invulnerability still blinks the ship; the shorter window after a shield hit doesn't, so the two can't be confused.
