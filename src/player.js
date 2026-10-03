@@ -523,14 +523,19 @@ export class Pod {
 
   attach(side) {
     this.state = side;
-    this.g.audio.play('podAttach');
+    this.g.audio.play('podClamp');
   }
 
   toggle() {
     const a = this.g.audio;
     switch (this.state) {
-      case 'front': this.state = 'launch'; this.vx = POD_LAUNCH_FRONT; a.play('podLaunch'); break;
-      case 'back': this.state = 'launch'; this.vx = -POD_LAUNCH_BACK; a.play('podLaunch'); break;
+      case 'front':
+      case 'back':
+        this.vx = this.state === 'front' ? POD_LAUNCH_FRONT : -POD_LAUNCH_BACK;
+        this.state = 'launch';
+        a.play('podLaunch');
+        a.play('podRelease');
+        break;
       case 'free':
       case 'launch': this.state = 'recall'; break;
       case 'recall': this.state = 'free'; break;
