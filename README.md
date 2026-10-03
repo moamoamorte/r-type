@@ -39,6 +39,8 @@ There's no automated test suite, but `python3 tools/smoke.py` is a headless smok
 | Mute | M | |
 | Fullscreen | F | |
 
+On a phone or tablet, on-screen controls appear instead. iPhone Safari can't make a web page fullscreen, so there the FS button explains how to add the game to the Home Screen. Launched from that icon, it runs with no browser UI.
+
 ## How it plays
 
 - **Charge beam:** hold fire to fill the BEAM meter, then release. Higher charge gives a bigger, piercing shot.

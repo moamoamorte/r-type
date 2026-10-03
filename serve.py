@@ -32,7 +32,11 @@ def newest_mtime():
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript"}
+    extensions_map = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        ".js": "text/javascript",
+        ".webmanifest": "application/manifest+json",
+    }
 
     def do_GET(self):
         if self.path.split("?")[0] == "/__mtime":

@@ -119,3 +119,11 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Decision:** the game was renamed from Xiphos; the GitHub repo followed, from `r-type` to `x-76`. High scores saved under `xiphos-hi` or the older `nebula-lance-hi` are migrated on load.
 
 **Why:** owner's choice, tracked in [#24](https://github.com/moamoamorte/x-76/issues/24). `r-type` as a repo name named the game this project is inspired by rather than the project itself (see §1); `x-76` doesn't have that problem.
+
+## 18. iPhone fullscreen via Home Screen web app
+
+**Decision:** on iPhone, the FS button explains how to add the game to the Home Screen instead of calling `requestFullscreen()`. The page ships a manifest and Apple's web-app meta tags so the Home Screen launch has no browser UI.
+
+**Why:** iPhone Safari has no element Fullscreen API on any iOS version; iPadOS 16.4 added it for iPad only. Four PRs (#49, #51, #53, #54) tuned the event wiring before this was spotted, and none of them could have worked on iPhone. Tracked in [#56](https://github.com/moamoamorte/x-76/issues/56).
+
+**Consequence:** with `viewport-fit=cover` the page runs under the notch and home indicator, so `body` is padded by the safe-area insets and `fit()` sizes the canvas to the padded box. Anything new positioned against the viewport rather than inside `#wrap` has to respect those insets itself. There's no Home Screen icon yet, so iOS uses a page snapshot.
