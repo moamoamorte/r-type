@@ -38,7 +38,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** converting the whole engine to 3D would have risked the working stage while delivering nothing gameplay-wise. This way the conversion is incremental and reversible.
 
-**Consequence:** a transparent WebGL canvas is stacked over the 2D canvas, so 3D objects always draw on top of 2D ones. Fine while only the player and pod are 3D; it will need revisiting when terrain and enemies convert (an enemy behind terrain would currently draw in front of it).
+**Consequence:** a transparent WebGL canvas is stacked over the 2D canvas, so 3D objects always draw on top of 2D ones. Fine while only the player and pod were 3D; revisited when terrain converted (§22).
 
 ## 6. Keep the 2D sprites as a fallback (superseded by §21)
 
@@ -109,7 +109,7 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Done in [#4](https://github.com/moamoamorte/x-76/issues/4), with these details:
 
 - **Scale is capped at 6** device pixels per logical pixel (`MAX_SCALE` in `view.js`); past that the browser upscales the canvas. Measured in headless Chrome on an M2 Mac, a 2304×1440 backing store holds 60 fps with under 1 ms of CPU per draw, but cache memory grows with the square of the scale, and a 4K screen at DPR 2 would want 9.
-- **Terrain art is drawn lazily in 256px strips** near the camera rather than as one stage-wide canvas: at scale 6 the whole of stage 1 would be ~36000px wide, past browser canvas limits and hundreds of MB. Each tile seeds its own PRNG so a strip boundary can't change how it looks; the decorations therefore differ from the old single-pass render. 3D terrain ([#5](https://github.com/moamoamorte/x-76/issues/5)) replaces this anyway.
+- **Terrain art was drawn lazily in 256px strips** near the camera rather than as one stage-wide canvas: at scale 6 the whole of stage 1 would be ~36000px wide, past browser canvas limits and hundreds of MB. Replaced by 3D terrain in [#5](https://github.com/moamoamorte/x-76/issues/5) (§22), which keeps the per-tile seeds.
 - **Pixel-locking moved to device pixels.** The camera and sprite origins snap to whole device pixels (`snap()`), not logical ones, so slow scrolls step by one device pixel instead of jumping by several, and terrain-mounted sprites still stay locked to the terrain.
 
 ## 16. No visible gun barrels on the ship
@@ -155,3 +155,15 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Why:** owner's choice on [#26](https://github.com/moamoamorte/x-76/issues/26), option 3 of three (keep a full fallback, keep a minimal one, drop it). Every 3D conversion would otherwise have had to keep a matching 2D path alive, roughly doubling the art work, for the rare browser without WebGL.
 
 **Consequence:** game code can call `game.r3d` without null checks. The smoke test runs once, on SwiftShader, and fails outright if WebGL can't start. The side-by-side 2D/3D comparison that §6 valued is gone; the preview harness remains the place to inspect models.
+
+## 22. 3D terrain: perspective camera, three canvases, two passes
+
+**Decision:** terrain is 3D geometry built from the tile grid, with every block's front face at z = 0 exactly over its tiles. The 3D layer uses a perspective camera placed so z = 0 maps game pixels 1:1. The page stacks three canvases: background (2D), WebGL, then sprites, HUD and overlays (2D). WebGL draws terrain, clears depth, then draws the ship, pod and shield.
+
+**Why:** from [#5](https://github.com/moamoamorte/x-76/issues/5) and [#6](https://github.com/moamoamorte/x-76/issues/6).
+
+- *Perspective rather than orthographic:* an orthographic camera looking straight down −z only ever shows a block's front face, so extruded terrain would look exactly like the flat art it replaces. A perspective camera shows the top, bottom and side faces facing the screen centre, and keeps everything at z = 0 (block fronts, the ship) exactly where gameplay has it, so collision and visuals still agree. `CAM_DIST` = 640 keeps the effect modest: receding faces show as at most ~8px at the screen's side edges.
+- *Front/back 2D canvases rather than a CanvasTexture in the scene:* uploading the whole 2D layer as a texture every frame, at display resolution (up to 2304×1344), costs far more than compositing one extra canvas, and buys nothing until 2D sprites need to sit *between* 3D objects. Every 2D sprite today belongs in front of terrain, which is how the 2D game layered them.
+- *Two passes:* the ship's model is wider than its hitbox, so it often overlaps a wall it's grazing without touching it. In one depth-tested pass the wall's front face (z = 0) would cut off the half of the ship behind z = 0.
+
+**Consequence:** front-layer sprites (enemy bullets, explosions, items) now draw over the 3D ship rather than under it, and overlays dim the ship too. The background walls are still 2D on the back canvas; moving them to 3D is [#67](https://github.com/moamoamorte/x-76/issues/67). When enemies convert (#7), each one moves from the front canvas into the 3D scene, and the layer table in ARCHITECTURE.md should follow.

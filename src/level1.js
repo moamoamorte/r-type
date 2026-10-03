@@ -70,7 +70,7 @@ export function buildTerrain() {
   t.fillRect(686, 22, 692, 28, ORGANIC);
   t.fillRect(744, 0, COLS, ROWS, ORGANIC);
 
-  t.render();
+  t.computeDepth();
   return t;
 }
 

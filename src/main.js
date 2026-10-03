@@ -14,6 +14,11 @@ import { TouchControls, toggleFullscreen } from './touch.js';
 import { SHIELD_DAMAGE, SHIELD_INV, SHIELD_PICKUP } from './tuning.js';
 import { view, snap, setViewScale, MAX_SCALE } from './view.js';
 
+// Three stacked canvases (index.html), back to front: the background, the
+// WebGL layer (terrain, ship, pod), then sprites, HUD and overlays. `ctx` is
+// the front one, which most drawing goes to.
+const backCanvas = document.getElementById('back');
+const bctx = backCanvas.getContext('2d');
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 
@@ -539,9 +544,12 @@ class Game {
   // Everything draws in logical pixels; the transform maps them onto the
   // canvas's device-resolution backing store (see fit()).
   draw() {
-    ctx.setTransform(view.s, 0, 0, view.s, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    for (const c of [bctx, ctx]) {
+      c.setTransform(view.s, 0, 0, view.s, 0, 0);
+      c.imageSmoothingEnabled = true;
+      c.imageSmoothingQuality = 'high';
+    }
+    ctx.clearRect(0, 0, W, SCREEN_H);
     if (this.r3d.scale !== view.s) this.r3d.setScale(view.s);
     if (this.state === 'title') this.drawTitle();
     else this.drawPlay();
@@ -552,16 +560,20 @@ class Game {
     // Snapped to device pixels: scrolling steps by one device pixel, not one
     // logical pixel, and terrain-mounted sprites stay locked to the terrain.
     const cam = this.cam, camD = snap(cam);
+    // One shake offset for all three layers, so sprites stay on the terrain.
+    const s = this.fx.shake;
+    const shake = s ? { x: Math.round(rand(-s, s)), y: Math.round(rand(-s, s)) } : { x: 0, y: 0 };
+    bctx.save();
+    bctx.translate(shake.x, shake.y);
+    this.bg.draw(bctx, cam, this.t);
+    bctx.restore();
+    this.r3d.render(this, camD, shake);
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, W, H);
     ctx.clip();
-    if (this.fx.shake) {
-      const s = this.fx.shake;
-      ctx.translate(Math.round(rand(-s, s)), Math.round(rand(-s, s)));
-    }
-    this.bg.draw(ctx, cam, this.t);
-    this.terrain.draw(ctx, camD);
+    ctx.translate(shake.x, shake.y);
     this.boss?.draw(ctx, camD);
     for (const e of this.enemies) if (e !== this.boss) e.draw(ctx, camD);
     for (const it of this.items) it.draw(ctx, camD);
@@ -576,7 +588,6 @@ class Game {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
-    this.r3d.render(this);
 
     this.drawHUD();
     this.drawOverlays();
@@ -699,9 +710,9 @@ class Game {
   }
 
   drawTitle() {
-    this.bg.draw(ctx, this.stateT * 0.5, this.t);
-    ctx.fillStyle = 'rgba(0,0,10,0.35)';
-    ctx.fillRect(0, 0, W, H);
+    this.bg.draw(bctx, this.stateT * 0.5, this.t);
+    bctx.fillStyle = 'rgba(0,0,10,0.35)';
+    bctx.fillRect(0, 0, W, H);
     drawText(ctx, 'X-76', W / 2, 24, '#8ad8ff', { align: 'center', scale: 4, shadow: '#1a2a7a' });
     drawText(ctx, `STAGE ${STAGES[0].id} - ${STAGES[0].name}`, W / 2, 60, '#ffd070', { align: 'center' });
 
@@ -769,12 +780,15 @@ function fit() {
   const dpr = devicePixelRatio || 1;
   const s = Math.min(MAX_SCALE, k * dpr);
   const cw = Math.round(W * s), ch = Math.round(SCREEN_H * s);
-  if (canvas.width !== cw || canvas.height !== ch) {
-    canvas.width = cw;
-    canvas.height = ch;
+  for (const c of [backCanvas, canvas]) {
+    if (c.width !== cw || c.height !== ch) {
+      c.width = cw;
+      c.height = ch;
+    }
   }
-  canvas.style.width = `${W * k}px`;
-  canvas.style.height = `${SCREEN_H * k}px`;
+  // The front canvas and the WebGL layer size themselves to this one in CSS.
+  backCanvas.style.width = `${W * k}px`;
+  backCanvas.style.height = `${SCREEN_H * k}px`;
   setViewScale(cw / W);
 }
 addEventListener('resize', fit);
