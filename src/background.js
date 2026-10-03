@@ -1,9 +1,7 @@
-// Parallax starfield, nebula, and the interior walls of the space station.
+// Parallax starfield and nebula. The station and boss chamber walls in front
+// of them are 3D (models/backdrop3d.js).
 import { W, H, rand, mulberry32, TAU } from './util.js';
 import { view, snap, scaledCanvas } from './view.js';
-
-const INTERIOR_START = 980;  // world x where the station interior begins
-const CHAMBER_START = 5488;  // world x where the organic boss chamber begins
 
 export class Background {
   constructor() {
@@ -24,8 +22,6 @@ export class Background {
   build() {
     this.gen = view.gen;
     this.nebula = this.makeNebula();
-    this.girders = this.makeGirders();
-    this.flesh = this.makeFlesh();
   }
 
   makeNebula() {
@@ -66,86 +62,6 @@ export class Background {
     return cv;
   }
 
-  makeGirders() {
-    const w = 192;
-    const { cv, c } = scaledCanvas(w, H);
-    const rng = mulberry32(11);
-    const g = c.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#0d1220');
-    g.addColorStop(0.5, '#080b14');
-    g.addColorStop(1, '#0d1220');
-    c.fillStyle = g;
-    c.fillRect(0, 0, w, H);
-    // Back wall panels
-    c.fillStyle = '#10172a';
-    for (let x = 0; x < w; x += 48) c.fillRect(x + 4, 40, 40, 144);
-    c.fillStyle = '#1a2340';
-    for (let x = 0; x < w; x += 48) {
-      c.fillRect(x + 4, 40, 40, 1);
-      for (let y = 56; y < 180; y += 22) {
-        c.fillStyle = rng() < 0.35 ? '#3a5a8a' : '#162038';
-        c.fillRect(x + 12, y, 24, 3);
-      }
-      c.fillStyle = '#1a2340';
-    }
-    // Horizontal trusses with cross bracing
-    for (const ty of [26, 190]) {
-      c.fillStyle = '#1e2844';
-      c.fillRect(0, ty, w, 3);
-      c.fillRect(0, ty + 12, w, 3);
-      c.strokeStyle = '#1a2440';
-      c.lineWidth = 2;
-      c.beginPath();
-      for (let x = 0; x < w; x += 16) {
-        c.moveTo(x, ty + 3);
-        c.lineTo(x + 16, ty + 12);
-        c.moveTo(x + 16, ty + 3);
-        c.lineTo(x, ty + 12);
-      }
-      c.stroke();
-    }
-    // Vertical columns
-    for (const cx of [0, 96]) {
-      c.fillStyle = '#18203a';
-      c.fillRect(cx, 0, 14, H);
-      c.fillStyle = '#26314f';
-      c.fillRect(cx + 1, 0, 2, H);
-      c.fillStyle = '#0c1020';
-      c.fillRect(cx + 12, 0, 2, H);
-      c.fillStyle = '#ff6040';
-      c.fillRect(cx + 6, 100, 2, 2);
-    }
-    return cv;
-  }
-
-  makeFlesh() {
-    const w = 128;
-    const { cv, c } = scaledCanvas(w, H);
-    c.fillStyle = '#1a0810';
-    c.fillRect(0, 0, w, H);
-    const rng = mulberry32(3);
-    for (let i = 0; i < 40; i++) {
-      c.fillStyle = `rgba(${90 + rng() * 60},${20 + rng() * 20},${40 + rng() * 30},0.35)`;
-      c.beginPath();
-      c.ellipse(rng() * w, rng() * H, 6 + rng() * 14, 4 + rng() * 10, rng() * 3, 0, TAU);
-      c.fill();
-    }
-    c.strokeStyle = 'rgba(160,40,70,0.35)';
-    c.lineWidth = 1.5;
-    for (let i = 0; i < 8; i++) {
-      c.beginPath();
-      let x = rng() * w, y = 0;
-      c.moveTo(x, y);
-      while (y < H) {
-        y += 12;
-        x += (rng() - 0.5) * 14;
-        c.lineTo(x, y);
-      }
-      c.stroke();
-    }
-    return cv;
-  }
-
   update() {
     for (const s of this.stars) {
       s.x -= s.sp;
@@ -177,13 +93,5 @@ export class Background {
       if (s.big && (t + s.y) % 40 < 20) ctx.fillRect(snap(s.x - 1), snap(s.y + 0.25), 3, 0.5);
       ctx.fillRect(snap(s.x), snap(s.y), s.sz, s.sz);
     }
-    // Station interior: back wall scrolls at half speed; it starts where the hull starts.
-    const interiorFrom = INTERIOR_START - cam;
-    if (interiorFrom < W) {
-      const doorFrom = INTERIOR_START - cam;
-      this.tiled(ctx, this.girders, cam, 0.5, doorFrom);
-    }
-    const chamberFrom = CHAMBER_START - cam;
-    if (chamberFrom < W) this.tiled(ctx, this.flesh, cam, 0.5, chamberFrom);
   }
 }
