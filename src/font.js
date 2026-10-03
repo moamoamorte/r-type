@@ -1,63 +1,104 @@
-// Tiny 5x7 bitmap font. Glyphs are cached at device resolution, so each font
-// pixel is a crisp block whatever the display scale.
+// Angular stroke font on the old 5x7 grid. Glyphs are polylines through pixel
+// centres (x 0-4, y 0-6) with 45-degree chamfers where a bitmap font would
+// round a corner, stroked at display resolution so diagonals stay clean at any
+// scale. Metrics match the old bitmap font (6px advance, 7px cap height), so
+// layout code doesn't change.
 import { view, snap } from './view.js';
 
+// Parts are separated by '|'. A part is a polyline of "x,y" points (closed if
+// it ends where it starts), or '*x,y' for a square dot.
 const GLYPHS = {
-  A: [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11], B: [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
-  C: [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e], D: [0x1c, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1c],
-  E: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f], F: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
-  G: [0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f], H: [0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
-  I: [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e], J: [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0c],
-  K: [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11], L: [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
-  M: [0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11], N: [0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11],
-  O: [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e], P: [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
-  Q: [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d], R: [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
-  S: [0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e], T: [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
-  U: [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e], V: [0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
-  W: [0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0a], X: [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
-  Y: [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04], Z: [0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
-  0: [0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e], 1: [0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e],
-  2: [0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f], 3: [0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e],
-  4: [0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02], 5: [0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
-  6: [0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e], 7: [0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
-  8: [0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e], 9: [0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c],
-  '-': [0, 0, 0, 0x1f, 0, 0, 0], '.': [0, 0, 0, 0, 0, 0x0c, 0x0c], '!': [0x04, 0x04, 0x04, 0x04, 0x04, 0, 0x04],
-  ':': [0, 0x0c, 0x0c, 0, 0x0c, 0x0c, 0], '/': [0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10],
-  '?': [0x0e, 0x11, 0x01, 0x02, 0x04, 0, 0x04], ',': [0, 0, 0, 0, 0x0c, 0x04, 0x08],
-  "'": [0x04, 0x04, 0x08, 0, 0, 0, 0], '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
-  ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08], '+': [0, 0x04, 0x04, 0x1f, 0x04, 0x04, 0],
-  '=': [0, 0, 0x1f, 0, 0x1f, 0, 0], '>': [0x08, 0x04, 0x02, 0x01, 0x02, 0x04, 0x08],
-  '<': [0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02], ' ': [0, 0, 0, 0, 0, 0, 0],
-  '%': [0x18, 0x19, 0x02, 0x04, 0x08, 0x13, 0x03],
+  A: '0,6 0,1 1,0 3,0 4,1 4,6|0,3 4,3',
+  B: '0,3 3,3 4,4 4,5 3,6 0,6 0,0 3,0 4,1 4,2 3,3',
+  C: '4,1 3,0 1,0 0,1 0,5 1,6 3,6 4,5',
+  D: '0,0 3,0 4,1 4,5 3,6 0,6 0,0',
+  E: '4,0 0,0 0,6 4,6|0,3 3,3',
+  F: '4,0 0,0 0,6|0,3 3,3',
+  G: '4,1 3,0 1,0 0,1 0,5 1,6 3,6 4,5 4,3 2,3',
+  H: '0,0 0,6|4,0 4,6|0,3 4,3',
+  I: '1,0 3,0|2,0 2,6|1,6 3,6',
+  J: '1,0 4,0 4,5 3,6 1,6 0,5',
+  K: '0,0 0,6|4,0 1,3 4,6|0,3 1,3',
+  L: '0,0 0,6 4,6',
+  M: '0,6 0,0 2,3 4,0 4,6',
+  N: '0,6 0,0 4,6 4,0',
+  O: '1,0 3,0 4,1 4,5 3,6 1,6 0,5 0,1 1,0',
+  P: '0,6 0,0 3,0 4,1 4,2 3,3 0,3',
+  Q: '1,0 3,0 4,1 4,5 3,6 1,6 0,5 0,1 1,0|2,4 4,6',
+  R: '0,6 0,0 3,0 4,1 4,2 3,3 0,3|2,3 4,6',
+  S: '4,1 3,0 1,0 0,1 0,2 1,3 3,3 4,4 4,5 3,6 1,6 0,5',
+  T: '0,0 4,0|2,0 2,6',
+  U: '0,0 0,5 1,6 3,6 4,5 4,0',
+  V: '0,0 0,3 2,6 4,3 4,0',
+  W: '0,0 0,6 2,3 4,6 4,0',
+  X: '0,0 4,6|4,0 0,6',
+  Y: '0,0 2,3 4,0|2,3 2,6',
+  Z: '0,0 4,0 0,6 4,6',
+  0: '1,0 3,0 4,1 4,5 3,6 1,6 0,5 0,1 1,0|3,2 1,4',
+  1: '1,1 2,0 2,6|1,6 3,6',
+  2: '0,1 1,0 3,0 4,1 4,2 0,6 4,6',
+  3: '0,1 1,0 3,0 4,1 4,2 3,3 1,3|3,3 4,4 4,5 3,6 1,6 0,5',
+  4: '3,6 3,0 0,4 4,4',
+  5: '4,0 0,0 0,2 3,2 4,3 4,5 3,6 1,6 0,5',
+  6: '3,0 1,0 0,1 0,5 1,6 3,6 4,5 4,4 3,3 0,3',
+  7: '0,0 4,0 4,1 1,4 1,6',
+  8: '1,0 3,0 4,1 4,2 3,3 1,3 0,2 0,1 1,0|1,3 3,3 4,4 4,5 3,6 1,6 0,5 0,4 1,3',
+  9: '1,6 3,6 4,5 4,1 3,0 1,0 0,1 0,2 1,3 4,3',
+  '-': '0,3 4,3', '.': '*1.5,5.5', '!': '2,0 2,4|*2,6', ':': '*1.5,1.5|*1.5,4.5',
+  '/': '4,0 0,6', '?': '0,1 1,0 3,0 4,1 4,2 2,3.5 2,4|*2,6', ',': '*1.5,4.5|2,5 1,6',
+  "'": '2,0 2,1 1,2', '(': '3,0 1,2 1,4 3,6', ')': '1,0 3,2 3,4 1,6',
+  '+': '2,1 2,5|0,3 4,3', '=': '0,2 4,2|0,4 4,4', '>': '1,0 4,3 1,6',
+  '<': '3,0 0,3 3,6', ' ': '', '%': '*0.5,0.5|4,0 0,6|*3.5,5.5',
 };
+
+const parse = (src) => src ? src.split('|').map((part) => {
+  const dot = part[0] === '*';
+  const pts = (dot ? part.slice(1) : part).split(' ').map((p) => p.split(',').map(Number));
+  return { dot, pts };
+}) : [];
+const PARSED = {};
+for (const ch in GLYPHS) PARSED[ch] = parse(GLYPHS[ch]);
+
+const STROKE = 0.9;   // in font pixels; a touch under 1 so it reads finer than the old blocks
+const DOT = 1.5;
+const PAD = 1;        // square caps and miters poke slightly outside the 5x7 box
 
 const cache = new Map();
 
-// k = device pixels per font pixel. Block edges are rounded to whole device
-// pixels so neighbouring blocks never leave antialiased seams between them.
+// k = device pixels per font pixel.
 function renderText(str, color, shadow, k) {
   const cw = 6;
   const w = Math.max(1, str.length * cw);
   const cv = document.createElement('canvas');
-  cv.width = Math.round((w + 1) * k);
-  cv.height = Math.round(8 * k);
+  cv.width = Math.round((w + 1 + PAD * 2) * k);
+  cv.height = Math.round((8 + PAD * 2) * k);
   cv.lw = w + 1;
-  cv.lh = 8;
   const c = cv.getContext('2d');
-  const at = (v) => Math.round(v * k);
+  c.setTransform(k, 0, 0, k, PAD * k, PAD * k);
+  c.lineWidth = STROKE;
+  c.lineCap = 'square';
+  c.lineJoin = 'miter';
+  // Strokes and dots go in separate paths: filling the dots' path would also
+  // fill closed letter outlines.
   const pass = (col, ox, oy) => {
-    c.fillStyle = col;
+    const lines = new Path2D(), dots = new Path2D();
     for (let i = 0; i < str.length; i++) {
-      const g = GLYPHS[str[i]] || GLYPHS['?'];
-      for (let r = 0; r < 7; r++) {
-        const bits = g[r];
-        for (let b = 0; b < 5; b++) {
-          if (!(bits & (16 >> b))) continue;
-          const x = i * cw + b + ox, y = r + oy;
-          c.fillRect(at(x), at(y), at(x + 1) - at(x), at(y + 1) - at(y));
+      const gx = i * cw + ox + 0.5, gy = oy + 0.5;
+      for (const { dot, pts } of PARSED[str[i]] || PARSED['?']) {
+        if (dot) {
+          dots.rect(gx + pts[0][0] - DOT / 2, gy + pts[0][1] - DOT / 2, DOT, DOT);
+          continue;
         }
+        const n = pts.length;
+        const closed = n > 2 && pts[0][0] === pts[n - 1][0] && pts[0][1] === pts[n - 1][1];
+        lines.moveTo(gx + pts[0][0], gy + pts[0][1]);
+        for (let j = 1; j < (closed ? n - 1 : n); j++) lines.lineTo(gx + pts[j][0], gy + pts[j][1]);
+        if (closed) lines.closePath();
       }
     }
+    c.fillStyle = c.strokeStyle = col;
+    c.stroke(lines);
+    c.fill(dots);
   };
   if (shadow) pass(shadow, 1, 1);
   pass(color, 0, 0);
@@ -80,5 +121,5 @@ export function drawText(ctx, str, x, y, color = '#fff', { align = 'left', scale
   if (align === 'center') dx = x - w / 2;
   else if (align === 'right') dx = x - w;
   // Destination size is the cache's own device size, so the blit is 1:1.
-  ctx.drawImage(cv, snap(dx), snap(y), cv.width / view.s, cv.height / view.s);
+  ctx.drawImage(cv, snap(dx - PAD * scale), snap(y - PAD * scale), cv.width / view.s, cv.height / view.s);
 }

@@ -60,8 +60,11 @@ export class PowerItem {
       ctx.beginPath();
       ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 2); ctx.lineTo(-6, 0);
       ctx.fill();
+      // Facet glint along the upper-left edge.
       ctx.fillStyle = hue.core;
-      ctx.fillRect(-1, -5, 2, 4);
+      ctx.beginPath();
+      ctx.moveTo(0, -6.5); ctx.lineTo(-4.5, -0.5); ctx.lineTo(-3.5, -0.5); ctx.lineTo(0, -5);
+      ctx.fill();
     } else if (this.type === 'shield') {
       // A hexagonal cell with a plus: reads as "repair", unlike the round letter pods.
       const hex = (r) => {
@@ -101,8 +104,11 @@ export class PowerItem {
       ctx.beginPath();
       ctx.arc(0, 0, 7, this.t * 0.1, this.t * 0.1 + 4.5);
       ctx.stroke();
+      // An angular glint rather than a block, matching the cel-shaded models.
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(-4, -5, 3, 2);
+      ctx.beginPath();
+      ctx.moveTo(-6, -3); ctx.lineTo(-3.5, -6); ctx.lineTo(-1.5, -6.8); ctx.lineTo(-5, -1.8);
+      ctx.fill();
       drawText(ctx, cfg[2], 0, -3, '#fff', { align: 'center', shadow: cfg[0] });
     }
     ctx.restore();
