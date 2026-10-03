@@ -1,5 +1,6 @@
 // Parallax starfield, nebula, and the interior walls of the space station.
 import { W, H, rand, mulberry32, TAU } from './util.js';
+import { view, snap, scaledCanvas } from './view.js';
 
 const INTERIOR_START = 980;  // world x where the station interior begins
 const CHAMBER_START = 5488;  // world x where the organic boss chamber begins
@@ -7,25 +8,28 @@ const CHAMBER_START = 5488;  // world x where the organic boss chamber begins
 export class Background {
   constructor() {
     this.stars = [];
+    // sz: farther stars are finer points rather than whole logical pixels.
     const layers = [
-      { n: 60, sp: 0.12, c: ['#3a4260', '#4a4a70'] },
-      { n: 40, sp: 0.35, c: ['#7080b0', '#9090c0'] },
-      { n: 24, sp: 0.9, c: ['#e0e8ff', '#fff4d0', '#b0d0ff'] },
+      { n: 60, sp: 0.12, sz: 0.5, c: ['#3a4260', '#4a4a70'] },
+      { n: 40, sp: 0.35, sz: 0.75, c: ['#7080b0', '#9090c0'] },
+      { n: 24, sp: 0.9, sz: 1, c: ['#e0e8ff', '#fff4d0', '#b0d0ff'] },
     ];
     for (const L of layers)
       for (let i = 0; i < L.n; i++)
-        this.stars.push({ x: rand(0, W), y: rand(0, H), sp: L.sp * rand(0.8, 1.2), c: L.c[i % L.c.length], big: L.sp > 0.5 && Math.random() < 0.3 });
+        this.stars.push({ x: rand(0, W), y: rand(0, H), sp: L.sp * rand(0.8, 1.2), sz: L.sz, c: L.c[i % L.c.length], big: L.sp > 0.5 && Math.random() < 0.3 });
+    this.gen = -1;
+  }
 
+  // The layers are pre-rendered at the display scale, so a resize rebuilds them.
+  build() {
+    this.gen = view.gen;
     this.nebula = this.makeNebula();
     this.girders = this.makeGirders();
     this.flesh = this.makeFlesh();
   }
 
   makeNebula() {
-    const cv = document.createElement('canvas');
-    cv.width = 1024;
-    cv.height = H;
-    const c = cv.getContext('2d');
+    const { cv, c } = scaledCanvas(1024, H);
     const rng = mulberry32(7);
     const blobs = [
       [120, 60, 140, '80,40,140'], [300, 170, 120, '30,60,140'], [560, 90, 180, '110,30,90'],
@@ -57,17 +61,15 @@ export class Background {
     c.stroke();
     for (let i = 0; i < 80; i++) {
       c.fillStyle = `rgba(200,200,255,${rng() * 0.4})`;
-      c.fillRect(rng() * 1024, rng() * H, 1, 1);
+      c.fillRect(rng() * 1024, rng() * H, 0.6, 0.6);
     }
     return cv;
   }
 
   makeGirders() {
     const w = 192;
-    const cv = document.createElement('canvas');
-    cv.width = w;
-    cv.height = H;
-    const c = cv.getContext('2d');
+    const { cv, c } = scaledCanvas(w, H);
+    const rng = mulberry32(11);
     const g = c.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, '#0d1220');
     g.addColorStop(0.5, '#080b14');
@@ -81,7 +83,7 @@ export class Background {
     for (let x = 0; x < w; x += 48) {
       c.fillRect(x + 4, 40, 40, 1);
       for (let y = 56; y < 180; y += 22) {
-        c.fillStyle = Math.random() < 0.35 ? '#3a5a8a' : '#162038';
+        c.fillStyle = rng() < 0.35 ? '#3a5a8a' : '#162038';
         c.fillRect(x + 12, y, 24, 3);
       }
       c.fillStyle = '#1a2340';
@@ -118,10 +120,7 @@ export class Background {
 
   makeFlesh() {
     const w = 128;
-    const cv = document.createElement('canvas');
-    cv.width = w;
-    cv.height = H;
-    const c = cv.getContext('2d');
+    const { cv, c } = scaledCanvas(w, H);
     c.fillStyle = '#1a0810';
     c.fillRect(0, 0, w, H);
     const rng = mulberry32(3);
@@ -161,20 +160,22 @@ export class Background {
     ctx.beginPath();
     ctx.rect(Math.max(0, from), 0, W, H);
     ctx.clip();
-    const w = img.width;
-    let ox = -((cam * par) % w);
-    for (let x = ox; x < W; x += w) ctx.drawImage(img, Math.floor(x), 0);
+    // Stepped in whole device pixels so repeats butt together without seams.
+    const s = view.s, wd = img.width;
+    for (let xd = Math.round(-((cam * par) % img.lw) * s); xd < W * s; xd += wd)
+      ctx.drawImage(img, xd / s, 0, wd / s, img.height / s);
     ctx.restore();
   }
 
   draw(ctx, cam, t) {
+    if (this.gen !== view.gen) this.build();
     ctx.fillStyle = '#02030a';
     ctx.fillRect(0, 0, W, H);
     this.tiled(ctx, this.nebula, cam, 0.06, 0);
     for (const s of this.stars) {
       ctx.fillStyle = s.c;
-      if (s.big && (t + s.y) % 40 < 20) ctx.fillRect(s.x - 1, s.y, 3, 1);
-      ctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
+      if (s.big && (t + s.y) % 40 < 20) ctx.fillRect(snap(s.x - 1), snap(s.y + 0.25), 3, 0.5);
+      ctx.fillRect(snap(s.x), snap(s.y), s.sz, s.sz);
     }
     // Station interior: back wall scrolls at half speed; it starts where the hull starts.
     const interiorFrom = INTERIOR_START - cam;
