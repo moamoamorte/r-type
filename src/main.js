@@ -569,8 +569,13 @@ class Game {
     ctx.fillRect(0, y, W, HUD_H);
     ctx.fillStyle = '#1a2240';
     ctx.fillRect(0, y, W, 1);
-    // Reserve ships
+    // Reserve ships: a snapshot of the 3D model, or the 2D sprite without WebGL.
+    const icon = this.r3d?.shipIcon(12, 8);
     for (let i = 0; i < Math.min(5, this.lives - 1); i++) {
+      if (icon) {
+        ctx.drawImage(icon, 4 + i * 14, y + 4);
+        continue;
+      }
       ctx.save();
       ctx.translate(10 + i * 14, y + 8);
       ctx.scale(0.4, 0.4);
