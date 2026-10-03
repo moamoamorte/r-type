@@ -7,6 +7,11 @@ export const BOSS_CAM = 5600;          // camera stops here; boss arena fills th
 export const SCROLL = 0.55;            // px per frame
 export const CHECKPOINTS = [0, 1080, 2560, 3480, 4560, 5300];
 export const WARNING_CAM = 5470;
+// Walls behind the terrain (models/backdrop3d.js), by world x.
+export const BACKDROPS = [
+  { kind: 'station', x0: 980, x1: 5488 },
+  { kind: 'chamber', x0: 5488, x1: 6144 },
+];
 
 export function buildTerrain() {
   const t = new Terrain(COLS);

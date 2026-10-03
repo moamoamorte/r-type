@@ -57,7 +57,7 @@ On a phone or tablet, on-screen controls appear instead. iPhone Safari can't mak
 
 ## 3D models
 
-The player ship, pod and station terrain are real 3D models rendered with Three.js (vendored in `vendor/`, no install or build step). They sit on a transparent canvas between the 2D background and the 2D sprites, and all game logic stays 2D. Enemies, the boss and effects are still 2D for now.
+The player ship, pod, station terrain and its backdrops are real 3D models rendered with Three.js (vendored in `vendor/`, no install or build step). They sit on a transparent canvas between the 2D background and the 2D sprites, and all game logic stays 2D. Enemies, the boss and effects are still 2D for now.
 
 - The models are built in code, so there are no asset files.
 - Shading is cel-style with ink outlines, to match a hand-drawn anime look.
@@ -103,7 +103,7 @@ Also available:
 | `src/player.js` | Ship, pod, bits, and all player projectiles |
 | `src/enemies.js` | Enemy types and enemy bullets |
 | `src/boss.js` | Stage 1 boss |
-| `src/background.js` | Parallax starfield, nebula, and station interior |
+| `src/background.js` | Parallax starfield and nebula |
 | `src/fx.js` | Particles and explosions |
 | `src/audio.js` | Synthesised sound effects and music sequencer |
 | `src/font.js` | Angular stroke font on a 5×7 grid |
