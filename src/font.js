@@ -1,4 +1,7 @@
-// Tiny 5x7 bitmap font so text stays crisp at the low arcade resolution.
+// Tiny 5x7 bitmap font. Glyphs are cached at device resolution, so each font
+// pixel is a crisp block whatever the display scale.
+import { view, snap } from './view.js';
+
 const GLYPHS = {
   A: [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11], B: [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
   C: [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e], D: [0x1c, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1c],
@@ -30,20 +33,29 @@ const GLYPHS = {
 
 const cache = new Map();
 
-function renderText(str, color, shadow) {
+// k = device pixels per font pixel. Block edges are rounded to whole device
+// pixels so neighbouring blocks never leave antialiased seams between them.
+function renderText(str, color, shadow, k) {
   const cw = 6;
   const w = Math.max(1, str.length * cw);
   const cv = document.createElement('canvas');
-  cv.width = w + 1;
-  cv.height = 8;
+  cv.width = Math.round((w + 1) * k);
+  cv.height = Math.round(8 * k);
+  cv.lw = w + 1;
+  cv.lh = 8;
   const c = cv.getContext('2d');
+  const at = (v) => Math.round(v * k);
   const pass = (col, ox, oy) => {
     c.fillStyle = col;
     for (let i = 0; i < str.length; i++) {
       const g = GLYPHS[str[i]] || GLYPHS['?'];
       for (let r = 0; r < 7; r++) {
         const bits = g[r];
-        for (let b = 0; b < 5; b++) if (bits & (16 >> b)) c.fillRect(i * cw + b + ox, r + oy, 1, 1);
+        for (let b = 0; b < 5; b++) {
+          if (!(bits & (16 >> b))) continue;
+          const x = i * cw + b + ox, y = r + oy;
+          c.fillRect(at(x), at(y), at(x + 1) - at(x), at(y + 1) - at(y));
+        }
       }
     }
   };
@@ -55,16 +67,18 @@ function renderText(str, color, shadow) {
 // Draw text at (x, y). align: 'left' | 'center' | 'right'. scale: integer size multiplier.
 export function drawText(ctx, str, x, y, color = '#fff', { align = 'left', scale = 1, shadow = '#000' } = {}) {
   str = String(str).toUpperCase();
-  const key = str + '|' + color + '|' + shadow;
+  const k = view.s * scale;
+  const key = str + '|' + color + '|' + shadow + '|' + k;
   let cv = cache.get(key);
   if (!cv) {
-    cv = renderText(str, color, shadow);
+    cv = renderText(str, color, shadow, k);
     if (cache.size > 400) cache.clear();
     cache.set(key, cv);
   }
-  const w = cv.width * scale;
+  const w = cv.lw * scale;
   let dx = x;
   if (align === 'center') dx = x - w / 2;
   else if (align === 'right') dx = x - w;
-  ctx.drawImage(cv, Math.round(dx), Math.round(y), w, cv.height * scale);
+  // Destination size is the cache's own device size, so the blit is 1:1.
+  ctx.drawImage(cv, snap(dx), snap(y), cv.width / view.s, cv.height / view.s);
 }

@@ -1,6 +1,7 @@
 // Player ship, the detachable pod, satellite bits, and all player projectiles.
 import { W, H, clamp, lerp, TAU, angleTo, turnToward } from './util.js';
 import { LASER_HUE } from './items.js';
+import { snap } from './view.js';
 import {
   shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, BEAM, DOCK,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
@@ -386,7 +387,7 @@ export class Player {
   draw(ctx, cam) {
     if (this.dead) return;
     if (this.inv > 0 && !this.hitT && (this.t >> 2) % 2) return;
-    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    const x = snap(this.x) - cam, y = snap(this.y);
     drawShip(ctx, x, y, this.tilt);
     if (this.hitT > SHIELD_INV - 8) {
       // Struck: draw the ship again additively so it flares white.
@@ -434,7 +435,7 @@ export class Player {
   // Charge orb at the nose; drawn on the 2D layer even when the ship is 3D.
   drawCharge(ctx, cam) {
     if (this.dead || this.charge <= 0) return;
-    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    const x = snap(this.x) - cam, y = snap(this.y);
     {
       const r = 2 + this.charge * 6 + Math.sin(this.t * 0.6) * 1;
       ctx.save();
@@ -582,7 +583,7 @@ export class Pod {
   }
 
   draw(ctx, cam) {
-    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    const x = snap(this.x) - cam, y = snap(this.y);
     const hue = LASER_HUE[this.color];
     ctx.save();
     ctx.translate(x, y);
@@ -655,7 +656,7 @@ export class Bit {
     this.g.pbullets.push(new PBullet('bitshot', this.x + 6, this.y, 7, 0, { trail: null }));
   }
   draw(ctx, cam) {
-    const x = Math.round(this.x) - cam, y = Math.round(this.y);
+    const x = snap(this.x) - cam, y = snap(this.y);
     ctx.save();
     ctx.translate(x, y);
     const g = ctx.createRadialGradient(-1, -1, 0, 0, 0, 5);

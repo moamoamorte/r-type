@@ -3,16 +3,14 @@
 // two armoured tentacles sweep the arena, and it spits homing larvae.
 import { TAU, rand, lerp, mulberry32 } from './util.js';
 import { Enemy, EBullet, Larva } from './enemies.js';
+import { view, snap, scaledCanvas } from './view.js';
 
 const N_SEG = 16, SEG_LEN = 8;
 const EYE_X = 312, EYE_Y = 112;    // relative to the screen's left edge
 
 function makeBody() {
   const w = 120, h = 224;
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  const c = cv.getContext('2d');
+  const { cv, c } = scaledCanvas(w, h);
   const rng = mulberry32(42);
   const edgeX = (y) => 22 + Math.pow(Math.abs(y - 112) / 112, 1.6) * 48;
 
@@ -128,7 +126,6 @@ export class Boss extends Enemy {
     this.active = false;
     this.lash = 0;
     this.spiral = 0;
-    this.body = makeBody();
     this.eye = { x: 0, y: EYE_Y, r: 20, armored: true };
     this.bodyParts = [
       { dx: 358, y: 112, r: 44, armored: true },
@@ -285,13 +282,15 @@ export class Boss extends Enemy {
   }
 
   draw(ctx, cam) {
-    const ox = Math.round(this.ox) - cam;
+    const ox = snap(this.ox) - cam;
+    // Pre-rendered at the display scale, so rebuilt after a resize.
+    if (this.bodyGen !== view.gen) { this.body = makeBody(); this.bodyGen = view.gen; }
     const fading = this.state === 'dying' && this.st > 150;
     ctx.save();
     if (fading) ctx.globalAlpha = Math.max(0, 1 - (this.st - 150) / 50);
 
     for (const tc of this.tent) this.drawTentacle(ctx, tc, cam);
-    ctx.drawImage(this.body, ox + 280, 0);
+    ctx.drawImage(this.body, snap(ox + 280), 0, this.body.lw, this.body.lh);
 
     // Pulsing glow in the eye crater
     const ex = ox + EYE_X;
@@ -311,7 +310,7 @@ export class Boss extends Enemy {
   drawTentacle(ctx, tc, cam) {
     for (let i = N_SEG - 1; i >= 0; i--) {
       const s = tc.segs[i];
-      const x = Math.round(s.x) - cam, y = Math.round(s.y);
+      const x = snap(s.x) - cam, y = snap(s.y);
       if (i === N_SEG - 1) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';

@@ -1,5 +1,6 @@
 // Enemy roster for stage 1 (all original designs) plus enemy bullets.
 import { W, H, clamp, lerp, rand, TAU, angleTo, turnToward, dist2 } from './util.js';
+import { snap } from './view.js';
 
 export class EBullet {
   constructor(x, y, vx, vy, big = false) {
@@ -90,7 +91,7 @@ export class Enemy {
     if (this.drop) g.spawnItem(this.x, this.y, this.drop);
   }
   col(c) { return this.flash > 0 ? '#ffffff' : c; }
-  pos(cam) { return [Math.round(this.x) - cam, Math.round(this.y)]; }
+  pos(cam) { return [snap(this.x) - cam, snap(this.y)]; }
   update() { this.tick(); }
   draw() {}
 }
@@ -442,7 +443,7 @@ class Hatch extends Enemy {
       this.g.enemies.push(new Larva(this.g, this.x, this.y + (this.up ? -4 : 4), this.up ? -1 : 1));
   }
   draw(ctx, cam) {
-    const x = Math.round(this.x) - cam, s = this.surf;
+    const x = snap(this.x) - cam, s = this.surf;
     const d = this.up ? -1 : 1;
     const a0 = this.up ? Math.PI : 0, a1 = this.up ? TAU : Math.PI;
     ctx.save();
@@ -564,7 +565,7 @@ class Serpent extends Enemy {
     for (let i = this.N - 1; i >= 0; i--) {
       if (this.dying && i < this.dying / 5) continue;
       const s = this.segs[i];
-      const x = Math.round(s.x) - cam, y = Math.round(s.y);
+      const x = snap(s.x) - cam, y = snap(s.y);
       if (i % 2 === 0) {
         ctx.fillStyle = '#6a4a5a';
         ctx.beginPath();

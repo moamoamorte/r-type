@@ -2,6 +2,7 @@
 // canvas stacked over the 2D playfield. Game logic stays 2D and untouched.
 import * as THREE from '../vendor/three.module.js';
 import { W, H } from './util.js';
+import { view } from './view.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { createShield } from './models/shield.js';
@@ -21,7 +22,7 @@ export class Render3D {
   constructor(canvas) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     this.renderer.setPixelRatio(1);
-    this.setScale(3);
+    this.setScale(view.s);
 
     this.scene = new THREE.Scene();
     // Game pixels map 1:1 to world units; screen y grows downward, world y up.
@@ -45,7 +46,8 @@ export class Render3D {
     this.hideAll();
   }
 
-  // Internal resolution multiplier over the 384x224 field.
+  // Internal resolution multiplier over the 384x224 field: the display scale,
+  // so the 3D layer is exactly as sharp as the 2D canvas under it.
   setScale(s) {
     this.scale = s;
     this.renderer.setSize(W * s, H * s, false);
@@ -60,6 +62,66 @@ export class Render3D {
   clear() {
     this.hideAll();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // HUD spare-ship icon: the ship model rendered once, supersampled, then
+  // shrunk into a w x h 2D canvas. It borrows the main renderer (a second
+  // WebGL context costs more than a resize) and redraws the scene as it was
+  // afterwards, so it is safe to call mid-frame. Cached per size, so asking
+  // for a new size (e.g. a sharper HUD) regenerates it.
+  shipIcon(w, h) {
+    const key = `${w}x${h}`;
+    if (this.icon?.key === key) return this.icon.canvas;
+
+    const SS = 8;
+    const s = this.ship.group;
+    const vis = [s.visible, this.pod.group.visible, this.shield.group.visible];
+    const pos = s.position.clone(), rot = s.rotation.clone(), scl = s.scale.clone();
+    const bank = this.ship.bank;
+    const bankRot = bank.rotation.clone(), bankPos = bank.position.clone();
+    const flames = [];
+    s.traverse((o) => { if (o.material?.blending === THREE.AdditiveBlending) flames.push([o, o.visible]); });
+
+    this.hideAll();
+    s.visible = true;
+    s.position.set(0, 0, 0);
+    s.rotation.set(0.2, -0.3, 0);
+    s.scale.setScalar(1);
+    bank.rotation.set(0, 0, 0);
+    bank.position.set(0, 0, 0);
+    for (const [o] of flames) o.visible = false;   // parked: no engine glow or muzzle flash
+
+    // Frame the model's silhouette, padded to the icon's aspect.
+    s.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(s, true);
+    const c = box.getCenter(new THREE.Vector3());
+    const sz = box.getSize(new THREE.Vector3());
+    const half = Math.max(sz.x / w, sz.y / h) / 2;
+    const cam = new THREE.OrthographicCamera(c.x - w * half, c.x + w * half, c.y + h * half, c.y - h * half, -800, 800);
+    cam.position.z = 400;
+
+    this.renderer.setSize(w * SS, h * SS, false);
+    this.renderer.render(this.scene, cam);
+    // Halve repeatedly: one big smoothed downscale drops thin edges and outlines.
+    let src = this.renderer.domElement, sw = w * SS, sh = h * SS;
+    while (sw > w) {
+      sw /= 2; sh /= 2;
+      const dst = document.createElement('canvas');
+      dst.width = sw; dst.height = sh;
+      const g = dst.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(src, 0, 0, sw, sh);
+      src = dst;
+    }
+    this.icon = { key, canvas: src };
+
+    [s.visible, this.pod.group.visible, this.shield.group.visible] = vis;
+    s.position.copy(pos); s.rotation.copy(rot); s.scale.copy(scl);
+    bank.rotation.copy(bankRot); bank.position.copy(bankPos);
+    for (const [o, v] of flames) o.visible = v;
+    this.setScale(this.scale);
+    this.renderer.render(this.scene, this.camera);
+    return src;
   }
 
   // Title screen: the ship hangs centre stage, turning slowly.
