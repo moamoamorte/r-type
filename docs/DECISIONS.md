@@ -139,3 +139,11 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 **Why:** owner's answers on [#14](https://github.com/moamoamorte/x-76/issues/14). A percentage rather than a few fixed points lets different hits cost different amounts.
 
 **Consequence:** stage 1 is much easier than it was tuned for. The damage numbers are placeholders; enemy placement, bullet volume and the costs themselves are rebalanced together in [#12](https://github.com/moamoamorte/x-76/issues/12). Respawn invulnerability still blinks the ship; the shorter window after a shield hit doesn't, so the two can't be confused. The shield bubble is invisible until something hits it (owner's call): each hit flashes it up and it fades out over that window, so the HUD meter is the only resting readout.
+
+## 20. A stroke font instead of the 5x7 bitmap font
+
+**Decision:** text is drawn with an angular stroke font: polylines through the old 5x7 grid's pixel centres, 45-degree chamfers where a bitmap font rounds a corner, stroked a little under one logical pixel wide and cached at display resolution. The advance (6px), cap height (7px) and drop shadow are unchanged, so no layout moved.
+
+**Why:** owner's answer on [#62](https://github.com/moamoamorte/x-76/issues/62), chosen over keeping the block font. At display resolution the blocks read as 4–6px squares next to the 3D ship; strokes stay clean at any scale and the chamfers match the models' angular style.
+
+**Consequence:** a new glyph is a string of points in `GLYPHS` (`src/font.js`); `*x,y` is a square dot. Unknown characters fall back to `?`.
