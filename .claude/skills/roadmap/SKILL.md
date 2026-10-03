@@ -60,7 +60,7 @@ Read the whole issue, including its comments, before starting. If the issue is t
 **Commit and PR.**
 - **Commit:** the message says what changed and why, and ends with `Fixes #N`.
 - **PR:** there's no PR template. Write the body with the sections **Problem**, **Change**, **Verification** and, when relevant, "left alone on purpose", and put `Fixes #N` at the top. Refer to issues as `#N` inside the repo; in chat, use full links.
-- **Merge:** only when the user asks. Use a merge commit (the repo's history uses them). Check first that the PR is mergeable; there's no CI to wait for.
+- **Merge:** only when the user asks. Use a merge commit (the repo's history uses them). Check first that the PR is mergeable; there's no CI to wait for. Straight after merging, tick the item on the roadmap (step 4, "Item just delivered"); a merge never leaves the roadmap saying "PR open".
 
 ## 4. File new issues and update the roadmap
 
