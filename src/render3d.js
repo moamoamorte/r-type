@@ -1,12 +1,28 @@
-// 3D layer: renders the player ship and pod as lit 3D models on a transparent
-// canvas stacked over the 2D playfield. Game logic stays 2D and untouched.
+// 3D layer: renders the terrain, player ship and pod as lit 3D models on a
+// transparent canvas between the two 2D canvases (see index.html). Game logic
+// stays 2D and untouched.
 import * as THREE from '../vendor/three.module.js';
 import { W, H } from './util.js';
 import { view } from './view.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { createShield } from './models/shield.js';
+import { createTerrain3D } from './models/terrain3d.js';
 import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV } from './tuning.js';
+
+// Camera distance from the play plane. Farther flattens the perspective: at
+// 640 a block face 28 deep shows as at most ~8px at the screen's side edges.
+const CAM_DIST = 640;
+
+function lights() {
+  const key = new THREE.DirectionalLight(0xffffff, 2.6);
+  key.position.set(60, 90, 120);
+  const fill = new THREE.DirectionalLight(0x91b4ff, 0.9);
+  fill.position.set(-80, -40, 60);
+  const rim = new THREE.DirectionalLight(0x7fe8ff, 1.7);
+  rim.position.set(-60, 30, -90);
+  return [key, fill, rim, new THREE.HemisphereLight(0xbcd2ff, 0x1a1e2a, 0.75)];
+}
 
 export class Render3D {
   // Returns null when WebGL isn't available; the game then shows a
@@ -25,18 +41,20 @@ export class Render3D {
     this.renderer.setPixelRatio(1);
     this.setScale(view.s);
 
+    // Two scenes drawn in turn, with the depth buffer cleared between them:
+    // terrain first, then the ship, pod and shield, which therefore never sink
+    // into a wall they graze. Both get the same lights.
+    this.world = new THREE.Scene();
     this.scene = new THREE.Scene();
-    // Game pixels map 1:1 to world units; screen y grows downward, world y up.
-    this.camera = new THREE.OrthographicCamera(0, W, 0, -H, -800, 800);
-    this.camera.position.set(0, 0, 400);
+    this.world.add(...lights());
+    this.scene.add(...lights());
 
-    const key = new THREE.DirectionalLight(0xffffff, 2.6);
-    key.position.set(60, 90, 120);
-    const fill = new THREE.DirectionalLight(0x91b4ff, 0.9);
-    fill.position.set(-80, -40, 60);
-    const rim = new THREE.DirectionalLight(0x7fe8ff, 1.7);
-    rim.position.set(-60, 30, -90);
-    this.scene.add(key, fill, rim, new THREE.HemisphereLight(0xbcd2ff, 0x1a1e2a, 0.75));
+    // Perspective, placed so the z = 0 plane maps game pixels 1:1 to world
+    // units: anything at z = 0 (block fronts, the ship) lands exactly where
+    // gameplay has it, and the faces receding into -z show their depth.
+    // Screen y grows downward, world y up. See DECISIONS §22.
+    this.camera = new THREE.PerspectiveCamera(2 * Math.atan(H / 2 / CAM_DIST) * 180 / Math.PI, W / H, 100, CAM_DIST + 400);
+    this.aimCamera(0, 0);
 
     this.ship = createShip();
     this.pod = createPod();
@@ -54,15 +72,34 @@ export class Render3D {
     this.renderer.setSize(W * s, H * s, false);
   }
 
+  aimCamera(dx, dy) {
+    this.camera.position.set(W / 2 + dx, -H / 2 + dy, CAM_DIST);
+  }
+
+  // Rebuilt whenever the game switches to a stage with different terrain.
+  setTerrain(terrain) {
+    if (this.terrainSrc === terrain) return;
+    this.terrain?.dispose();
+    if (this.terrain) this.world.remove(this.terrain.group);
+    this.terrainSrc = terrain;
+    this.terrain = createTerrain3D(terrain);
+    this.world.add(this.terrain.group);
+  }
+
+  // Both passes with whatever is currently posed.
+  draw() {
+    const r = this.renderer;
+    r.render(this.world, this.camera);
+    r.autoClear = false;
+    r.clearDepth();
+    r.render(this.scene, this.camera);
+    r.autoClear = true;
+  }
+
   hideAll() {
     this.ship.group.visible = false;
     this.pod.group.visible = false;
     this.shield.group.visible = false;
-  }
-
-  clear() {
-    this.hideAll();
-    this.renderer.render(this.scene, this.camera);
   }
 
   // HUD spare-ship icon: the ship model rendered once, supersampled, then
@@ -121,7 +158,7 @@ export class Render3D {
     bank.rotation.copy(bankRot); bank.position.copy(bankPos);
     for (const [o, v] of flames) o.visible = v;
     this.setScale(this.scale);
-    this.renderer.render(this.scene, this.camera);
+    this.draw();
     return src;
   }
 
@@ -139,12 +176,20 @@ export class Render3D {
       bank: Math.sin(t * 0.02) * 0.3,
       throttle: 1,
     });
-    this.renderer.render(this.scene, this.camera);
+    if (this.terrain) this.terrain.group.visible = false;
+    this.aimCamera(0, 0);
+    this.draw();
   }
 
-  render(game, dt = 1 / 60) {
+  // camD is the device-snapped camera the 2D sprites use, so terrain-mounted
+  // sprites stay locked to the 3D terrain; shake is the 2D layers' offset.
+  render(game, camD, shake = { x: 0, y: 0 }, dt = 1 / 60) {
     const p = game.player;
     const cam = game.cam;
+    this.setTerrain(game.terrain);
+    this.terrain.group.visible = true;
+    this.terrain.update(camD, W);
+    this.aimCamera(-shake.x, shake.y);
 
     // Respawn invulnerability blinks; the shorter window after a shield hit doesn't.
     const show = p && !p.dead && !(p.inv > 0 && !p.hitT && (p.t >> 2) % 2);
@@ -190,6 +235,6 @@ export class Render3D {
       this.pod.update(dt, { charge: p?.charge || 0 });
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.draw();
   }
 }

@@ -5,7 +5,7 @@ How X-76 is put together, and the invariants worth knowing before changing anyth
 ## Shape of the thing
 
 ```
-index.html      2D canvas (#screen) + transparent WebGL canvas (#screen3d) stacked over it, both at display resolution
+index.html      three stacked canvases at display resolution: back 2D (#back), WebGL (#screen3d), front 2D (#screen)
 preview.html    standalone model harness (no level, no game logic)
 serve.py        static dev server: no-cache, /__mtime for live reload, threaded
 vendor/         three.module.js + three.core.js (r180, MIT, vendored - no install)
@@ -14,14 +14,14 @@ src/            game + harness modules
 
 | File | Lines | Contents |
 | --- | --- | --- |
-| `src/main.js` | 842 | Game loop, state machine, spawning, collision, HUD, overlays, debug warp, "WebGL required" screen |
+| `src/main.js` | 856 | Game loop, state machine, spawning, collision, HUD, overlays, debug warp, "WebGL required" screen |
 | `src/stages.js` | 9 | Stage registry: id, name, level module, boss class |
 | `src/player.js` | 529 | Player, pod, bits, every player projectile |
 | `src/tuning.js` | 47 | Handling constants shared by the game and the preview sandbox |
 | `src/enemies.js` | 624 | Enemy base + 8 enemy types, enemy bullets |
 | `src/boss.js` | 406 | Stage 1 boss ("Oculus Bloom") |
 | `src/level1.js` | 184 | Stage 1 terrain shape and spawn script |
-| `src/terrain.js` | 172 | Tile collision grid + pre-rendered terrain artwork |
+| `src/terrain.js` | 79 | Tile collision grid and depth map |
 | `src/background.js` | 188 | Starfield, nebula, station interior, boss chamber walls |
 | `src/audio.js` | 333 | Synthesised sound effects + music sequencer |
 | `src/fx.js` | 125 | Particles, explosions, screen shake |
@@ -30,10 +30,11 @@ src/            game + harness modules
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
 | `src/view.js` | 30 | Display scale (logical → device pixels), `snap()`, scaled offscreen canvases |
-| `src/render3d.js` | 195 | 3D layer: draws ship, pod and shield over the 2D playfield |
+| `src/render3d.js` | 240 | 3D layer: perspective camera; draws terrain, then ship, pod and shield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
 | `src/models/shield.js` | 91 | Faceted shield bubble with an impact-ripple shader |
+| `src/models/terrain3d.js` | 247 | Stage terrain built from the tile grid: chamfered blocks, decals, ink lines |
 | `src/models/materials.js` | 73 | Toon ramp, ink-outline shader, shared palette |
 | `src/preview.js` | 445 | Harness: orbit, sequences, fly mode |
 | `src/livereload.js` | 34 | Polls `/__mtime`, reloads on change |
@@ -67,7 +68,7 @@ All collision is circle-based and lives in `main.js#collide()`.
 
 `terrain.js` holds a `Uint8Array` grid: 8px tiles, 28 rows (224px), 748 columns for stage 1. Values are tile *types* (hull / organic / machine), not sprites.
 
-Art is **pre-rendered in 256px strips** at the display scale, built as the camera approaches (one strip ahead) and dropped once passed; a stage-wide canvas at device resolution would exceed canvas size limits. `render()` computes a depth map (distance to the nearest empty tile) that drives shading, so interiors darken with depth and surfaces get bevels, rivets and vents. Each tile seeds its own PRNG, so a strip draws the same whatever its neighbours. Changing the grid needs another `render()`.
+It's drawn in 3D by `models/terrain3d.js`, built once per stage (about 20 ms for stage 1) in 64-column chunks, each a merged mesh, a mesh of indicator lights and a set of ink lines, so a frame draws a handful of calls. Every solid tile contributes a **front face at z = 0 exactly over its tile**, inset where an edge is exposed to make room for a 45° chamfer; exposed edges then recede to z = −`DEPTH` (28). Colour comes from vertex colours: `computeDepth()` measures each tile's distance to the nearest empty tile, and deeper tiles get darker fronts. Panel seams, vents, rivets, lights, blotches, veins and spikes are cheap geometry placed by per-tile seeds. The terrain group scrolls by the same device-snapped `camD` as the 2D sprites, so terrain-mounted enemies stay locked to it. Changing the grid needs another `computeDepth()` and a rebuild (`r3d.setTerrain`).
 
 Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY(x, fromY)`. The `fromY` hints matter — scanning for a floor from the wrong side finds the wrong surface (this caused a real bug with turrets mounted on the central block).
 
@@ -82,15 +83,24 @@ Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY
 
 Enemies: Drifter, Dart, Carrier (drops power-ups, including shield cells), Turret, Hopper, Bulwark (heavy walker), Hatch (spawner), Larva, Serpent. Boss: 170 hp, an armoured iris that opens on a cycle, two 16-segment tentacles, spore launches, and a faster second phase below half health.
 
-## Rendering: two stacked layers
+## Rendering: three stacked layers
 
-**Resolution.** `fit()` in `main.js` sizes the canvas to the largest 384×240 box that fits the window (fractional, aspect preserved) and sets its backing store to that size × `devicePixelRatio`, capped at `MAX_SCALE` = 6. That multiplier is `view.s` (`view.js`). `draw()` starts with `setTransform(s, …)`, so every draw call still works in logical pixels. Anything pre-rendered (font glyphs, nebula/girders/flesh, boss body, terrain strips, the HUD ship icon) is built at `view.s` through `scaledCanvas()` and rebuilt when `view.gen` changes, then blitted 1:1. `fit()` runs on resize, fullscreen change and pixel-ratio change; everything else picks the new scale up on its next draw.
+**Resolution.** `fit()` in `main.js` sizes the canvases to the largest 384×240 box that fits the window (fractional, aspect preserved) and sets its backing store to that size × `devicePixelRatio`, capped at `MAX_SCALE` = 6. That multiplier is `view.s` (`view.js`). `draw()` starts with `setTransform(s, …)`, so every draw call still works in logical pixels. Anything pre-rendered (font glyphs, nebula/girders/flesh, boss body, the HUD ship icon) is built at `view.s` through `scaledCanvas()` and rebuilt when `view.gen` changes, then blitted 1:1. `fit()` runs on resize, fullscreen change and pixel-ratio change; everything else picks the new scale up on its next draw.
 
-The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship, pod and shield bubble. The bubble reads `player.shield` and `player.lastHit`. The beam's charge orb is the one part of the player still drawn on the 2D canvas.
+Back to front (DECISIONS §22):
+
+| Layer | Canvas | Draws |
+| --- | --- | --- |
+| Back 2D | `#back` (`bctx`) | Starfield, nebula, station interior and boss chamber walls |
+| 3D, pass 1 | `#screen3d` | Terrain |
+| 3D, pass 2 | `#screen3d` | Ship, pod, shield bubble, always over terrain (depth cleared between passes) |
+| Front 2D | `#screen` (`ctx`) | Enemies, boss, items, bullets, bits, the charge orb, effects, popups, HUD, overlays |
+
+The WebGL canvas covers only the playfield (93.333% height, the HUD strip excluded). Screen shake is one offset applied to all three layers, so sprites never slide off the terrain. Front-layer sprites draw over the 3D ship, so enemy bullets stay visible over it; overlays (pause, game over) dim everything. Until enemies are 3D, a sprite is always in front of terrain, which matches how the 2D game layered them. The shield bubble reads `player.shield` and `player.lastHit`.
 
 `render3d.js`:
 
-- Orthographic camera mapping **game pixels 1:1** to world units: `(0, W, 0, -H)`. An entity at screen (x, y) is placed at world (x, −y).
+- **Perspective camera** at `CAM_DIST` = 640 in front of the play plane, with a field of view chosen so the z = 0 plane maps **game pixels 1:1** to world units. An entity at screen (x, y) is placed at world (x, −y, 0); terrain faces receding into −z show as up to ~8px slivers at the screen edges and nothing at the centre.
 - Internal resolution is the display scale (`setScale(view.s)`), so the 3D models are exactly as sharp as the 2D canvas under them. See DECISIONS §15.
 - The ship model is scaled 0.78 and the pod 0.72 (`SHIP_SCALE`, `POD_SCALE` in `tuning.js`), which is what makes them the right size on a 384px-wide field.
 - **WebGL is required.** `Render3D.create()` returns `null` when WebGL is unavailable; the boot code in `main.js` then shows a "WebGL required" screen on the 2D canvas and never creates the `Game`, so game code can assume `game.r3d` exists. See DECISIONS §21.
