@@ -5,7 +5,7 @@ import { W, H } from './util.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { createShield } from './models/shield.js';
-import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET } from './tuning.js';
+import { SHIP_SCALE, POD_SCALE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV } from './tuning.js';
 
 export class Render3D {
   // Returns null when WebGL isn't available, so the game can fall back to 2D.
@@ -40,7 +40,7 @@ export class Render3D {
     this.pod = createPod();
     this.ship.group.scale.setScalar(SHIP_SCALE);
     this.pod.group.scale.setScalar(POD_SCALE);
-    this.shield = createShield({ rx: SHIELD_RADIUS.x, ry: SHIELD_RADIUS.y });
+    this.shield = createShield({ rx: SHIELD_RADIUS.x, ry: SHIELD_RADIUS.y, fade: SHIELD_INV / 60 });
     this.scene.add(this.ship.group, this.pod.group, this.shield.group);
     this.hideAll();
   }

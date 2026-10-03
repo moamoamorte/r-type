@@ -134,4 +134,4 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** owner's answers on [#14](https://github.com/moamoamorte/x-76/issues/14). A percentage rather than a few fixed points lets different hits cost different amounts.
 
-**Consequence:** stage 1 is much easier than it was tuned for. The damage numbers are placeholders; enemy placement, bullet volume and the costs themselves are rebalanced together in [#12](https://github.com/moamoamorte/x-76/issues/12). Respawn invulnerability still blinks the ship; the shorter window after a shield hit doesn't, so the two can't be confused.
+**Consequence:** stage 1 is much easier than it was tuned for. The damage numbers are placeholders; enemy placement, bullet volume and the costs themselves are rebalanced together in [#12](https://github.com/moamoamorte/x-76/issues/12). Respawn invulnerability still blinks the ship; the shorter window after a shield hit doesn't, so the two can't be confused. The shield bubble is invisible until something hits it (owner's call): each hit flashes it up and it fades out over that window, so the HUD meter is the only resting readout.

@@ -8,7 +8,7 @@ import { Input } from './input.js';
 import {
   shipSpeed, TILT_EASE, TURN_EASE, CHARGE_DELAY, CHARGE_RATE, BEAM_MIN_CHARGE, beamLevel, DOCK, SHIP_SCALE, POD_SCALE,
   POD_LAUNCH_FRONT, POD_LAUNCH_BACK, POD_LAUNCH_DRAG, POD_LAUNCH_STOP, POD_FOLLOW, POD_RECALL_SPEED, POD_GRAB_DIST,
-  SHIELD_MAX, SHIELD_DAMAGE, SHIELD_RADIUS, SHIELD_OFFSET,
+  SHIELD_MAX, SHIELD_DAMAGE, SHIELD_RADIUS, SHIELD_OFFSET, SHIELD_INV,
 } from './tuning.js';
 import { liveReload } from './livereload.js';
 
@@ -95,7 +95,7 @@ const U = 1 / SHIP_SCALE;      // game pixels -> preview world units
 const POD_WITH_SHIP = POD_SCALE / SHIP_SCALE;
 
 // Shield bubble at its in-game size around the ship; only the "Shield hits" sequence shows it.
-const shield = createShield({ rx: SHIELD_RADIUS.x * U, ry: SHIELD_RADIUS.y * U, rz: 13 * U });
+const shield = createShield({ rx: SHIELD_RADIUS.x * U, ry: SHIELD_RADIUS.y * U, rz: 13 * U, fade: SHIELD_INV / 60 });
 shield.group.position.x = SHIELD_OFFSET * U;
 shield.group.visible = false;
 scene.add(shield.group);
