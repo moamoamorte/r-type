@@ -2,6 +2,7 @@
 // canvas stacked over the 2D playfield. Game logic stays 2D and untouched.
 import * as THREE from '../vendor/three.module.js';
 import { W, H } from './util.js';
+import { view } from './view.js';
 import { createShip } from './models/ship.js';
 import { createPod } from './models/pod.js';
 import { createShield } from './models/shield.js';
@@ -21,7 +22,7 @@ export class Render3D {
   constructor(canvas) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     this.renderer.setPixelRatio(1);
-    this.setScale(3);
+    this.setScale(view.s);
 
     this.scene = new THREE.Scene();
     // Game pixels map 1:1 to world units; screen y grows downward, world y up.
@@ -45,7 +46,8 @@ export class Render3D {
     this.hideAll();
   }
 
-  // Internal resolution multiplier over the 384x224 field.
+  // Internal resolution multiplier over the 384x224 field: the display scale,
+  // so the 3D layer is exactly as sharp as the 2D canvas under it.
   setScale(s) {
     this.scale = s;
     this.renderer.setSize(W * s, H * s, false);

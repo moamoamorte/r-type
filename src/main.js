@@ -12,6 +12,7 @@ import { PowerItem, CRYSTAL_COLORS } from './items.js';
 import { Render3D } from './render3d.js';
 import { TouchControls, toggleFullscreen } from './touch.js';
 import { SHIELD_DAMAGE, SHIELD_INV, SHIELD_PICKUP } from './tuning.js';
+import { view, snap, setViewScale, MAX_SCALE } from './view.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -519,15 +520,22 @@ class Game {
   }
 
   // ---- draw -----------------------------------------------------------------
+  // Everything draws in logical pixels; the transform maps them onto the
+  // canvas's device-resolution backing store (see fit()).
   draw() {
-    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(view.s, 0, 0, view.s, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (this.r3d && this.r3d.scale !== view.s) this.r3d.setScale(view.s);
     if (this.state === 'title') this.drawTitle();
     else this.drawPlay();
     this.touch.render();
   }
 
   drawPlay() {
-    const cam = this.cam, camI = Math.floor(cam);
+    // Snapped to device pixels: scrolling steps by one device pixel, not one
+    // logical pixel, and terrain-mounted sprites stay locked to the terrain.
+    const cam = this.cam, camD = snap(cam);
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, W, H);
@@ -537,19 +545,19 @@ class Game {
       ctx.translate(Math.round(rand(-s, s)), Math.round(rand(-s, s)));
     }
     this.bg.draw(ctx, cam, this.t);
-    this.terrain.draw(ctx, camI);
-    this.boss?.draw(ctx, camI);
-    for (const e of this.enemies) if (e !== this.boss) e.draw(ctx, camI);
-    for (const it of this.items) it.draw(ctx, camI);
-    for (const b of this.pbullets) b.draw(ctx, camI);
-    for (const b of this.bits) b.draw(ctx, camI);
+    this.terrain.draw(ctx, camD);
+    this.boss?.draw(ctx, camD);
+    for (const e of this.enemies) if (e !== this.boss) e.draw(ctx, camD);
+    for (const it of this.items) it.draw(ctx, camD);
+    for (const b of this.pbullets) b.draw(ctx, camD);
+    for (const b of this.bits) b.draw(ctx, camD);
     const flat = !this.r3d;
     if (this.state !== 'clear' || this.player.x - cam < W + 30) {
-      if (flat) this.player.draw(ctx, camI);
-      else this.player.drawCharge(ctx, camI);
+      if (flat) this.player.draw(ctx, camD);
+      else this.player.drawCharge(ctx, camD);
     }
-    if (flat) this.pod?.draw(ctx, camI);
-    for (const b of this.ebullets) b.draw(ctx, camI);
+    if (flat) this.pod?.draw(ctx, camD);
+    for (const b of this.ebullets) b.draw(ctx, camD);
     this.fx.draw(ctx, cam);
     for (const pu of this.popups) drawText(ctx, pu.text, pu.x - cam, pu.y, pu.color, { align: 'center' });
     if (this.fx.flash) {
@@ -570,10 +578,10 @@ class Game {
     ctx.fillStyle = '#1a2240';
     ctx.fillRect(0, y, W, 1);
     // Reserve ships: a snapshot of the 3D model, or the 2D sprite without WebGL.
-    const icon = this.r3d?.shipIcon(12, 8);
+    const icon = this.r3d?.shipIcon(Math.round(12 * view.s), Math.round(8 * view.s));
     for (let i = 0; i < Math.min(5, this.lives - 1); i++) {
       if (icon) {
-        ctx.drawImage(icon, 4 + i * 14, y + 4);
+        ctx.drawImage(icon, 4 + i * 14, y + 4, icon.width / view.s, icon.height / view.s);
         continue;
       }
       ctx.save();
@@ -742,20 +750,35 @@ function readWarp() {
 }
 
 // ---- boot -------------------------------------------------------------------
+// The canvas fills as much of the window as the aspect ratio allows, and its
+// backing store matches that size in device pixels (capped at MAX_SCALE) so
+// both layers draw at display resolution. The 3D layer and the pre-rendered
+// caches pick the new scale up on their next draw.
 function fit() {
   // Subtract body's safe-area padding (style.css) so the notch and home
   // indicator never overlap the play-field when running edge to edge.
   const pad = getComputedStyle(document.body);
   const w = innerWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
   const h = innerHeight - parseFloat(pad.paddingTop) - parseFloat(pad.paddingBottom);
-  const s = Math.min(w / W, h / SCREEN_H);
-  const k = s >= 2 ? Math.floor(s) : s;
+  const k = Math.max(0.25, Math.min(w / W, h / SCREEN_H));   // CSS px per logical px
+  const dpr = devicePixelRatio || 1;
+  const s = Math.min(MAX_SCALE, k * dpr);
+  const cw = Math.round(W * s), ch = Math.round(SCREEN_H * s);
+  if (canvas.width !== cw || canvas.height !== ch) {
+    canvas.width = cw;
+    canvas.height = ch;
+  }
   canvas.style.width = `${W * k}px`;
   canvas.style.height = `${SCREEN_H * k}px`;
+  setViewScale(cw / W);
 }
 addEventListener('resize', fit);
 // Not every browser fires 'resize' on fullscreen enter/exit.
 addEventListener('fullscreenchange', fit);
+// Nor when the window moves to a screen with a different pixel ratio.
+(function watchDpr() {
+  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => { fit(); watchDpr(); }, { once: true });
+})();
 fit();
 
 const game = new Game();

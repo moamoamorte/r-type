@@ -58,9 +58,9 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** matches the hand-inked anime look in the reference images, and works without post-processing passes (no `EffectComposer`, no addons — which also keeps the vendored surface to two files).
 
-## 9. 3D renders at 3x internal resolution
+## 9. 3D renders at 3x internal resolution (superseded by §15)
 
-**Decision:** the WebGL canvas is 1152×672 for a 384×224 field.
+**Decision:** the WebGL canvas was 1152×672 for a 384×224 field. Since [#4](https://github.com/moamoamorte/x-76/issues/4) it renders at the display scale instead, the same as the 2D canvas.
 
 **Why:** the detail in the models is invisible at 1x — this was demonstrated with side-by-side thumbnails during design.
 
@@ -106,7 +106,11 @@ Why things are the way they are. Newest last. If one of these looks wrong, check
 
 **Why:** owner's choice between the two endpoints in §9. Keeping the logical coordinates fixed makes this a rendering-only change, consistent with §5.
 
-**Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Tracked in [#4](https://github.com/moamoamorte/x-76/issues/4).
+**Consequence:** 3D conversion work targets display resolution. Pre-rendered 2D caches (font, backgrounds, terrain) must be rebuilt at the display scale. Done in [#4](https://github.com/moamoamorte/x-76/issues/4), with these details:
+
+- **Scale is capped at 6** device pixels per logical pixel (`MAX_SCALE` in `view.js`); past that the browser upscales the canvas. Measured in headless Chrome on an M2 Mac, a 2304×1440 backing store holds 60 fps with under 1 ms of CPU per draw, but cache memory grows with the square of the scale, and a 4K screen at DPR 2 would want 9.
+- **Terrain art is drawn lazily in 256px strips** near the camera rather than as one stage-wide canvas: at scale 6 the whole of stage 1 would be ~36000px wide, past browser canvas limits and hundreds of MB. Each tile seeds its own PRNG so a strip boundary can't change how it looks; the decorations therefore differ from the old single-pass render. 3D terrain ([#5](https://github.com/moamoamorte/x-76/issues/5)) replaces this anyway.
+- **Pixel-locking moved to device pixels.** The camera and sprite origins snap to whole device pixels (`snap()`), not logical ones, so slow scrolls step by one device pixel instead of jumping by several, and terrain-mounted sprites still stay locked to the terrain.
 
 ## 16. No visible gun barrels on the ship
 

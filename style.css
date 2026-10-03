@@ -19,8 +19,6 @@ body {
 }
 canvas {
   display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   background: #000;
   box-shadow: 0 0 40px rgba(60, 120, 255, 0.15);
   touch-action: none;

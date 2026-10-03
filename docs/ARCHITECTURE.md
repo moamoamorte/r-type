@@ -5,7 +5,7 @@ How X-76 is put together, and the invariants worth knowing before changing anyth
 ## Shape of the thing
 
 ```
-index.html      2D canvas (#screen, 384x240) + transparent WebGL canvas (#screen3d) stacked over it
+index.html      2D canvas (#screen) + transparent WebGL canvas (#screen3d) stacked over it, both at display resolution
 preview.html    standalone model harness (no level, no game logic)
 serve.py        static dev server: no-cache, /__mtime for live reload, threaded
 vendor/         three.module.js + three.core.js (r180, MIT, vendored - no install)
@@ -29,6 +29,7 @@ src/            game + harness modules
 | `src/font.js` | 69 | 5x7 bitmap font with a render cache |
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
+| `src/view.js` | 30 | Display scale (logical → device pixels), `snap()`, scaled offscreen canvases |
 | `src/render3d.js` | 132 | 3D layer: draws ship, pod and shield over the 2D playfield |
 | `src/models/ship.js` | 177 | Procedural ship model |
 | `src/models/pod.js` | 146 | Procedural pod model |
@@ -49,7 +50,7 @@ States: `title` → `play` → (`gameover` | `clear`) → `title`. From `clear` 
 
 - The camera (`game.cam`) only moves right, at `SCROLL` = 0.55 px/frame, and stops at `BOSS_CAM` = 5600.
 - **Everything lives in world coordinates.** Entities that should hold station relative to the screen set `relative = true`, which adds `scrollDelta` to their x each frame. Terrain-mounted things (turrets, hatches, walkers) leave it false.
-- Drawing uses `camI = Math.floor(cam)` and entities round their own position (`Math.round(x) - cam`), which keeps static props pixel-locked to the terrain instead of shimmering.
+- Drawing uses `camD = snap(cam)` and entities snap their own position (`snap(x) - cam`), both to whole *device* pixels. Static props stay locked to the terrain instead of shimmering, and slow scrolls move one device pixel at a time.
 - Screen y grows downward throughout the 2D game.
 
 ## Collision
@@ -66,7 +67,7 @@ All collision is circle-based and lives in `main.js#collide()`.
 
 `terrain.js` holds a `Uint8Array` grid: 8px tiles, 28 rows (224px), 748 columns for stage 1. Values are tile *types* (hull / organic / machine), not sprites.
 
-Art is **pre-rendered once** into a single offscreen canvas ~6000px wide and blitted per frame. A depth map (distance to the nearest empty tile) drives shading, so interiors darken with depth and surfaces get bevels, rivets and vents. This is why terrain draws cost nothing at runtime and why changing the grid requires a re-render.
+Art is **pre-rendered in 256px strips** at the display scale, built as the camera approaches (one strip ahead) and dropped once passed; a stage-wide canvas at device resolution would exceed canvas size limits. `render()` computes a depth map (distance to the nearest empty tile) that drives shading, so interiors darken with depth and surfaces get bevels, rivets and vents. Each tile seeds its own PRNG, so a strip draws the same whatever its neighbours. Changing the grid needs another `render()`.
 
 Queries: `solidAt(x, y)`, `boxSolid(cx, cy, hw, hh)`, `floorY(x, fromY)`, `ceilY(x, fromY)`. The `fromY` hints matter — scanning for a floor from the wrong side finds the wrong surface (this caused a real bug with turrets mounted on the central block).
 
@@ -83,12 +84,14 @@ Enemies: Drifter, Dart, Carrier (drops power-ups, including shield cells), Turre
 
 ## Rendering: two stacked layers
 
+**Resolution.** `fit()` in `main.js` sizes the canvas to the largest 384×240 box that fits the window (fractional, aspect preserved) and sets its backing store to that size × `devicePixelRatio`, capped at `MAX_SCALE` = 6. That multiplier is `view.s` (`view.js`). `draw()` starts with `setTransform(s, …)`, so every draw call still works in logical pixels. Anything pre-rendered (font glyphs, nebula/girders/flesh, boss body, terrain strips, the HUD ship icon) is built at `view.s` through `scaledCanvas()` and rebuilt when `view.gen` changes, then blitted 1:1. `fit()` runs on resize, fullscreen change and pixel-ratio change; everything else picks the new scale up on its next draw.
+
 The 2D canvas draws background, terrain, enemies, items, projectiles, effects and the HUD. The WebGL canvas sits above it, transparent, covering only the playfield (93.333% height, the HUD strip excluded), and draws the ship, pod and shield bubble. The bubble reads `player.shield` and `player.lastHit`; in `?flat=1` the player draws a 2D octagon outline instead.
 
 `render3d.js`:
 
 - Orthographic camera mapping **game pixels 1:1** to world units: `(0, W, 0, -H)`. An entity at screen (x, y) is placed at world (x, −y).
-- Internal resolution is **3x** the logical size (1152×672), so the 3D models are far sharper than the 2D pixel art. This mismatch is being resolved by rendering both layers at display resolution — see DECISIONS §15 and [#4](https://github.com/moamoamorte/x-76/issues/4).
+- Internal resolution is the display scale (`setScale(view.s)`), so the 3D models are exactly as sharp as the 2D canvas under them. See DECISIONS §15.
 - The ship model is scaled 0.78 and the pod 0.72 (`SHIP_SCALE`, `POD_SCALE` in `tuning.js`), which is what makes them the right size on a 384px-wide field.
 - `Render3D.create()` returns `null` when WebGL is unavailable, and the game falls back to the original 2D sprites. `?flat=1` forces that path.
 - The layer reads `player.tilt` (vertical lean) and `player.turn` (horizontal lean) and passes them as `bank` and `dip`. The ship model uses only dip's magnitude, so the nose drops whichever way the ship slides. It also watches `pod.state` and triggers the pod's clamp/release animations on transitions.

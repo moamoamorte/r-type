@@ -1,6 +1,7 @@
 // Power-up items dropped by carrier enemies.
 import { TAU } from './util.js';
 import { drawText } from './font.js';
+import { snap } from './view.js';
 
 export const CRYSTAL_COLORS = ['red', 'blue', 'yellow'];
 export const LASER_HUE = {
@@ -35,7 +36,7 @@ export class PowerItem {
   }
 
   draw(ctx, cam) {
-    const x = Math.round(this.x - cam), y = Math.round(this.y);
+    const x = snap(this.x - cam), y = snap(this.y);
     ctx.save();
     ctx.translate(x, y);
     if (this.type === 'crystal') {
