@@ -26,7 +26,7 @@ src/            game + harness modules
 | `src/audio.js` | 333 | Synthesised sound effects + music sequencer |
 | `src/fx.js` | 125 | Particles, explosions, screen shake |
 | `src/items.js` | 85 | Power-ups |
-| `src/font.js` | 69 | 5x7 bitmap font with a render cache |
+| `src/font.js` | 125 | Angular stroke font on a 5x7 grid, with a render cache |
 | `src/input.js` | 83 | Keyboard + gamepad, edge detection |
 | `src/util.js` | 48 | Constants and maths helpers |
 | `src/view.js` | 30 | Display scale (logical → device pixels), `snap()`, scaled offscreen canvases |

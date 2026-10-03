@@ -35,6 +35,25 @@ function saveHi(v) {
 }
 const pad = (n, l = 7) => String(Math.floor(n)).padStart(l, '0');
 
+// ---- HUD drawing helpers ----------------------------------------------------
+// Thinnest line that still covers a whole device pixel.
+const hair = () => Math.max(0.5, 1 / view.s);
+// A black meter well with a hairline, corner-chamfered border.
+function meterWell(x, y, w, h, color) {
+  const t = hair(), c = 1.5;
+  // Inset by half the line so the stroke stays inside the old box.
+  const l = x + t / 2, r = x + w - t / 2, u = y + t / 2, d = y + h - t / 2;
+  ctx.beginPath();
+  ctx.moveTo(l + c, u); ctx.lineTo(r, u); ctx.lineTo(r, d - c);
+  ctx.lineTo(r - c, d); ctx.lineTo(l, d); ctx.lineTo(l, u + c);
+  ctx.closePath();
+  ctx.fillStyle = '#000';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = t;
+  ctx.stroke();
+}
+
 class Game {
   constructor() {
     this.input = new Input();
@@ -575,8 +594,8 @@ class Game {
     const y = H;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, y, W, HUD_H);
-    ctx.fillStyle = '#1a2240';
-    ctx.fillRect(0, y, W, 1);
+    ctx.fillStyle = '#2a3866';
+    ctx.fillRect(0, y, W, hair());
     // Reserve ships: a snapshot of the 3D model, or the 2D sprite without WebGL.
     const icon = this.r3d?.shipIcon(Math.round(12 * view.s), Math.round(8 * view.s));
     for (let i = 0; i < Math.min(5, this.lives - 1); i++) {
@@ -593,10 +612,7 @@ class Game {
     // Beam charge meter
     drawText(ctx, 'BEAM', 80, y + 5, '#6ab0ff');
     const bx = 106, bw = 64;
-    ctx.fillStyle = '#1a2a5a';
-    ctx.fillRect(bx, y + 4, bw, 8);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(bx + 1, y + 5, bw - 2, 6);
+    meterWell(bx, y + 4, bw, 8, '#2a4a9a');
     const c = this.player?.charge || 0;
     if (c > 0) {
       const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
@@ -622,17 +638,28 @@ class Game {
     ctx.moveTo(x, y + 4); ctx.lineTo(x + 7, y + 4); ctx.lineTo(x + 7, y + 8);
     ctx.lineTo(x + 3.5, y + 12); ctx.lineTo(x, y + 8);
     ctx.fill();
+    // Shadowed right half: the same hard two-step shading as the 3D models.
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(x + 3.5, y + 4); ctx.lineTo(x + 7, y + 4); ctx.lineTo(x + 7, y + 8); ctx.lineTo(x + 3.5, y + 12);
+    ctx.fill();
     const sx = x + 10, cells = 10, cw = 4;
-    ctx.fillStyle = k <= 0.25 && blink ? '#8a1a20' : '#124040';
-    ctx.fillRect(sx, y + 4, cells * (cw + 1) + 1, 8);
+    meterWell(sx, y + 4, cells * (cw + 1) + 1, 8, k <= 0.25 && blink ? '#c02a30' : '#1f6a66');
+    // Slanted cells, each a parallelogram; the last one fills partway.
+    const cell = (cx, w) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + 1, y + 5.5); ctx.lineTo(cx + w + 0.6, y + 5.5);
+      ctx.lineTo(cx + w - 0.4, y + 10.5); ctx.lineTo(cx, y + 10.5);
+      ctx.fill();
+    };
     for (let i = 0; i < cells; i++) {
       const cx = sx + 1 + i * (cw + 1);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(cx, y + 5, cw, 6);
+      ctx.fillStyle = '#0c2222';
+      cell(cx, cw);
       const fill = clamp(k * cells - i, 0, 1);
       if (fill <= 0) continue;
       ctx.fillStyle = col;
-      ctx.fillRect(cx, y + 5, Math.max(1, Math.round(cw * fill)), 6);
+      cell(cx, Math.max(1, cw * fill));
     }
   }
 
@@ -659,6 +686,8 @@ class Game {
       ctx.fillRect(132, 13, 120, 4);
       ctx.fillStyle = '#ff3a5a';
       ctx.fillRect(132, 13, 120 * Math.max(0, b.hp / b.maxHp), 4);
+      ctx.fillStyle = '#ffb0c0';
+      ctx.fillRect(132, 13, 120 * Math.max(0, b.hp / b.maxHp), hair());
     }
     if (this.paused && this.state === 'play') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
